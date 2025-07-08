@@ -1,0 +1,42 @@
+{
+  "name": "croissant-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "nuxt typecheck"
+  },
+  "devDependencies": {
+    "@nuxt/devtools": "latest",
+    "@nuxt/eslint": "^1.5.2",
+    "@nuxt/ui": "^3.2.0",
+    "eslint": "^9.30.1",
+    "tailwindcss": "^4.1.11",
+    "typescript": "^5.8.3",
+    "vue-tsc": "^2.2.10"
+  },
+  "dependencies": {
+    "@iconify-json/lucide": "^1.2.55",
+    "@vueuse/nuxt": "^13.5.0",
+    "nuxt": "^3.17.6"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "sharp"
+    ],
+    "ignoredBuiltDependencies": [
+      "@parcel/watcher",
+      "esbuild",
+      "vue-demi"
+    ]
+  },
+  "packageManager": "pnpm@10.12.1"
+}

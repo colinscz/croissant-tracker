@@ -1,0 +1,41 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+@theme static {
+  --font-sans: 'Public Sans', sans-serif;
+  --font-serif: 'Instrument Serif', serif;
+}
+
+
+:root {
+  --croissant-gold: #D4A574;
+  --croissant-brown: #8B4513;
+  --croissant-cream: #FFF8DC;
+  --croissant-orange: #FF8C42;
+}
+
+body {
+  /* background: linear-gradient(135deg, #FFF8DC 0%, #F5E6D3 100%); */
+  min-height: 100vh;
+}
+
+.croissant-gradient {
+  background: linear-gradient(135deg, var(--croissant-gold) 0%, var(--croissant-orange) 100%);
+}
+
+.croissant-shadow {
+  box-shadow: 0 4px 20px rgba(212, 165, 116, 0.3);
+}
+
+.animate-bounce-slow {
+  animation: bounce 2s infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
