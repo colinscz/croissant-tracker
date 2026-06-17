@@ -16,7 +16,7 @@
   "devDependencies": {
     "@nuxt/devtools": "latest",
     "@nuxt/eslint": "^1.5.2",
-    "@nuxt/ui": "^3.2.0",
+    "@nuxt/ui": "^4.8.2",
     "eslint": "^9.30.1",
     "tailwindcss": "^4.1.11",
     "typescript": "^5.8.3",
@@ -26,18 +26,6 @@
     "@iconify-json/lucide": "^1.2.55",
     "@iconify-json/simple-icons": "^1.2.41",
     "@vueuse/nuxt": "^13.5.0",
-    "nuxt": "^3.17.6"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "better-sqlite3",
-      "sharp"
-    ],
-    "ignoredBuiltDependencies": [
-      "@parcel/watcher",
-      "esbuild",
-      "vue-demi"
-    ]
-  },
-  "packageManager": "pnpm@10.12.1"
+    "nuxt": "^4.4.8"
+  }
 }

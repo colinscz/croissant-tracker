@@ -1,0 +1,8 @@
+allowBuilds:
+  '@parcel/watcher': false
+  '@tailwindcss/oxide': true
+  esbuild: false
+  vue-demi: false
+registries:
+  default: https://registry.npmjs.org/
+minimumReleaseAge: 1440
