@@ -111,8 +111,8 @@
                 <div class="text-sm text-amber-600">{{ formatDate(debt.date) }}</div>
                 <div v-if="debt.reason" class="text-xs text-amber-500 italic">{{ debt.reason }}</div>
               </div>
-              <UButton 
-                color="green"
+              <UButton
+                color="success"
                 size="sm"
                 class="flex items-center gap-1"
                 @click="markAsDelivered(debt.id)"

@@ -31,12 +31,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: corepack enable
-      - uses: pnpm/action-setup@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320
         with:
-          node-version: "22"
-          cache: ${{ steps.detect-package-manager.outputs.manager }}
+          version: 11.5.2
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: pnpm
       - name: Install dependencies
         run: pnpm install
       - name: Build
