@@ -7,11 +7,13 @@ Guidance for Claude Code when working in this repository.
 **Croissant Tracker** 🥐 — a lighthearted single-page web app for tracking who
 owes croissants for being late (a European office tradition). Users log late
 arrivals, see who owes pastries, mark debts as delivered, and view a
-leaderboard. All data lives in browser **localStorage** — there is no backend
-or database.
+leaderboard. Entries are persisted in a **Supabase** Postgres database via the
+official **`@nuxtjs/supabase`** module — the browser talks to Supabase directly
+with the anon key, so there is no custom backend/server to run.
 
 The app is deployed as a static site to **GitHub Pages** at the base path
-`/croissant-tracker/`.
+`/croissant-tracker/`. Supabase connection details come from `SUPABASE_URL` /
+`SUPABASE_KEY` env vars (see `.env.example`).
 
 ## Tech Stack
 
@@ -19,6 +21,7 @@ The app is deployed as a static site to **GitHub Pages** at the base path
 - **Vue 3** (Composition API, `<script setup>`)
 - **Nuxt UI v4** (`@nuxt/ui`) — component library (`U*` components)
 - **Tailwind CSS v4** (configured via `@nuxt/ui`; CSS-first in `app/assets/css/main.css`)
+- **Supabase** (Postgres) via `@nuxtjs/supabase` — data persistence
 - **TypeScript** + `@nuxt/eslint`
 - **pnpm** as the package manager (Node 22)
 
@@ -50,20 +53,27 @@ app/
     AppHeader.vue      # fixed floating nav menu (UNavigationMenu) + ColorModeButton
     ColorModeButton.vue# dark/light toggle with View Transitions animation
   pages/
-    index.vue          # main tracker UI + all localStorage logic (the core file)
+    index.vue          # main tracker UI (the core file); persistence via composable
     about.vue          # static informational page
+  composables/
+    useCroissantEntries.ts # Supabase-backed entries state + CRUD helpers
+  types/database.ts    # Supabase DB schema types (typed client)
   utils/links.ts       # currently EMPTY
 server/                # tsconfig only; no server routes (static app)
+supabase/migrations/   # SQL schema for the croissant_entries table + RLS
 nuxt.config.ts
 .github/workflows/     # CI (lint commented out, typecheck runs) + GitHub Pages deploy
 ```
 
 ## Key Conventions
 
-- **State & persistence**: All tracker logic lives in `app/pages/index.vue`.
-  Entries are `ref([])`, persisted to `localStorage` under the key
-  `croissant-tracker-entries`. Loaded `onMounted`; guarded with
-  `import.meta.client` for SSR safety. There is no global store/Pinia.
+- **State & persistence**: The UI lives in `app/pages/index.vue`; data access is
+  encapsulated in the `useCroissantEntries` composable
+  (`app/composables/useCroissantEntries.ts`). It exposes a shared `entries`
+  (`useState`) plus `fetchEntries` / `addEntry` / `markAsDelivered`, all backed
+  by the Supabase `croissant_entries` table. Entries are fetched `onMounted`.
+  DB columns are snake_case; the composable maps them to the camelCase shape the
+  UI uses (`deliveredDate`, `createdAt`). There is no global store/Pinia.
 - **Components**: Use Nuxt UI `U*` components (`UCard`, `UButton`, `UForm`,
   `UInput`, etc.). They auto-import — no manual imports needed.
 - **Styling**: Tailwind utility classes inline. Custom theme tokens and helper
@@ -86,6 +96,8 @@ nuxt.config.ts
 
 ## Workflow Notes
 
-- This is a static, client-only app — there is no API or DB to run.
+- This is a static, client-only app — Supabase is the only backend. Set
+  `SUPABASE_URL` / `SUPABASE_KEY` in `.env` (copy `.env.example`) to run locally.
+  Without them the module only warns, so `pnpm typecheck`/`build` still succeed.
 - Validate changes with `pnpm typecheck` and `pnpm lint` before committing.
 - The default branch is `main`; CI and Pages deploy trigger on pushes to `main`.
