@@ -14,9 +14,9 @@
       <!-- Navigation Back -->
       <div class="mb-6">
         <UButton 
-          to="/" 
-          variant="ghost" 
-          color="amber"
+          to="/"
+          variant="ghost"
+          color="primary"
           class="flex items-center gap-2"
         >
           <div class="text-lg">←</div>

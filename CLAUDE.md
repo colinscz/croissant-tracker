@@ -74,14 +74,11 @@ nuxt.config.ts
 
 ## Known Issues / Gotchas
 
-- `app/layouts/default.vue` renders `<AppFooter />`, but **no `AppFooter`
-  component exists** in `app/components/`. This will warn/fail to resolve —
-  either create the component or remove the reference.
 - `app/utils/links.ts` is **empty**.
-- `app/pages/index.vue` uses `color="green"` and `color="amber"` on some
-  `UButton`s. Nuxt UI v4 only recognizes configured semantic colors
-  (`primary`, `neutral`, plus standard aliases). Prefer `color="primary"`/
-  `color="success"` or register the color in `app.config.ts`.
+- Use only Nuxt UI v4 **semantic color tokens** on components (`primary`,
+  `secondary`, `success`, `info`, `warning`, `error`, `neutral`) — not raw
+  Tailwind names like `green`/`amber`. `primary` is mapped to amber in
+  `app/app.config.ts`.
 - CI **lint is commented out** in `.github/workflows`; only `typecheck` runs on
   PRs. Run `pnpm lint` locally before pushing.
 - The GitHub Pages build uses `NUXT_APP_BASE_URL=/croissant-tracker/`. Use
