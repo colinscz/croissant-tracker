@@ -11,6 +11,11 @@ leaderboard. Entries are persisted in a **Supabase** Postgres database via the
 official **`@nuxtjs/supabase`** module — the browser talks to Supabase directly
 with the anon key, so there is no custom backend/server to run.
 
+Access requires signing in with a **Supabase Auth magic link** (passwordless
+email): the module's redirect middleware sends unauthenticated visitors to
+`/login`, and the emailed link returns them through `/confirm`. Only `/about`
+is public.
+
 The app is deployed as a static site to **GitHub Pages** at the base path
 `/croissant-tracker/`. Supabase connection details come from `SUPABASE_URL` /
 `SUPABASE_KEY` env vars (see `.env.example`).
@@ -54,7 +59,9 @@ app/
     ColorModeButton.vue# dark/light toggle with View Transitions animation
   pages/
     index.vue          # main tracker UI (the core file); persistence via composable
-    about.vue          # static informational page
+    login.vue          # magic-link sign-in form (signInWithOtp)
+    confirm.vue        # magic-link callback: completes sign-in, then redirects
+    about.vue          # static informational page (public, no auth)
   composables/
     useCroissantEntries.ts # Supabase-backed entries state + CRUD helpers
   types/database.ts    # Supabase DB schema types (typed client)
@@ -74,6 +81,14 @@ nuxt.config.ts
   by the Supabase `croissant_entries` table. Entries are fetched `onMounted`.
   DB columns are snake_case; the composable maps them to the camelCase shape the
   UI uses (`deliveredDate`, `createdAt`). There is no global store/Pinia.
+- **Auth**: Magic-link (passwordless) via `@nuxtjs/supabase`. Route protection
+  is configured in `nuxt.config.ts` under `supabase.redirect` /
+  `redirectOptions` (`login: /login`, `callback: /confirm`, `exclude: [/about]`).
+  `login.vue` calls `supabase.auth.signInWithOtp` with an `emailRedirectTo` built
+  from `runtimeConfig.app.baseURL` (so the GitHub Pages base path is respected);
+  `confirm.vue` watches `useSupabaseUser()` and redirects on sign-in. Access the
+  current user with `useSupabaseUser()`; sign out via `supabase.auth.signOut()`
+  (see `AppHeader.vue`).
 - **Components**: Use Nuxt UI `U*` components (`UCard`, `UButton`, `UForm`,
   `UInput`, etc.). They auto-import — no manual imports needed.
 - **Styling**: Tailwind utility classes inline. Custom theme tokens and helper

@@ -16,10 +16,18 @@ export default defineNuxtConfig({
     compatibilityVersion: 4
   },
   supabase: {
-    // No auth in this app — disable the global redirect middleware so pages
-    // are reachable without a logged-in user. The anon key + RLS policies
-    // (see supabase/migrations) gate access to the data instead.
-    redirect: false,
+    // Require a logged-in user to reach the tracker. The module installs a
+    // global middleware that redirects unauthenticated visitors to `login`;
+    // the magic-link email sends users back through `callback`.
+    redirect: true,
+    redirectOptions: {
+      login: '/login',
+      callback: '/confirm',
+      // Public pages that don't require authentication.
+      exclude: ['/about'],
+      // Remember where the user was headed so /confirm can send them back.
+      saveRedirectToCookie: true,
+    },
     // Types for the typed Supabase client (useSupabaseClient()).
     types: '~/types/database.ts',
   },

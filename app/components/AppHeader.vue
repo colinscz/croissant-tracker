@@ -4,6 +4,14 @@ import type { NavigationMenuItem } from '@nuxt/ui'
 defineProps<{
   links: NavigationMenuItem[]
 }>()
+
+const supabase = useSupabaseClient()
+const user = useSupabaseUser()
+
+const signOut = async () => {
+  await supabase.auth.signOut()
+  await navigateTo('/login')
+}
 </script>
 
 <template>
@@ -19,6 +27,16 @@ defineProps<{
       }"
     >
       <template #list-trailing>
+        <UTooltip v-if="user" :text="`Sign out ${user.email}`">
+          <UButton
+            icon="i-lucide-log-out"
+            variant="ghost"
+            color="neutral"
+            size="sm"
+            aria-label="Sign out"
+            @click="signOut"
+          />
+        </UTooltip>
         <ColorModeButton />
       </template>
     </UNavigationMenu>

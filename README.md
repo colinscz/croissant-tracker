@@ -44,6 +44,25 @@ module, so the tracker is shared across everyone who opens the app.
 
 4. `pnpm install && pnpm dev`.
 
-> The app uses no authentication: the table's RLS policies allow the anon key
-> to read and write entries. Add Supabase Auth and tighten the policies if you
-> need access control.
+## 🔐 Signing In (Magic Link)
+
+The app is gated behind **Supabase Auth** using passwordless **magic links**.
+Visitors are redirected to `/login`, enter their email, and receive a link that
+signs them in via `/confirm`. Only the `/about` page is public.
+
+To enable this in your Supabase project:
+
+1. **Authentication → Providers → Email**: make sure email sign-in is enabled.
+   (Magic links work with just an email — no password needed.)
+2. **Authentication → URL Configuration**: set the **Site URL** and add the
+   app's confirm URL to **Redirect URLs**, for both local and production, e.g.:
+
+   - `http://localhost:3000/confirm`
+   - `https://<your-username>.github.io/croissant-tracker/confirm`
+
+3. (Optional) Restrict who can sign in by disabling public sign-ups and
+   inviting users under **Authentication → Users**.
+
+> Note: the `croissant_entries` RLS policies are still open to the anon key. If
+> you want only authenticated users to read/write data, tighten those policies
+> to require `auth.role() = 'authenticated'`.
