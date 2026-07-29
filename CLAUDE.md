@@ -67,7 +67,7 @@ app/
   types/database.ts    # Supabase DB schema types (typed client)
   utils/links.ts       # currently EMPTY
 server/                # tsconfig only; no server routes (static app)
-supabase/migrations/   # SQL schema for the croissant_entries table + RLS
+supabase/migrations/   # SQL: croissant_entries table (0001) + authenticated-only RLS (0002)
 nuxt.config.ts
 .github/workflows/     # CI (lint commented out, typecheck runs) + GitHub Pages deploy
 ```

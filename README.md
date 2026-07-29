@@ -27,9 +27,12 @@ module, so the tracker is shared across everyone who opens the app.
 ### Setup
 
 1. Create a Supabase project.
-2. Run the SQL in [`supabase/migrations/0001_croissant_entries.sql`](supabase/migrations/0001_croissant_entries.sql)
-   (e.g. paste it into the SQL Editor) to create the `croissant_entries` table
-   and its row-level-security policies.
+2. Run the SQL migrations in [`supabase/migrations/`](supabase/migrations) in
+   order (e.g. paste each into the SQL Editor):
+   [`0001_croissant_entries.sql`](supabase/migrations/0001_croissant_entries.sql)
+   creates the `croissant_entries` table, and
+   [`0002_require_authenticated.sql`](supabase/migrations/0002_require_authenticated.sql)
+   restricts it to signed-in users (see auth setup below).
 3. Copy `.env.example` to `.env` and fill in your project's API URL and
    **anon** public key (Project Settings → API):
 
@@ -63,6 +66,6 @@ To enable this in your Supabase project:
 3. (Optional) Restrict who can sign in by disabling public sign-ups and
    inviting users under **Authentication → Users**.
 
-> Note: the `croissant_entries` RLS policies are still open to the anon key. If
-> you want only authenticated users to read/write data, tighten those policies
-> to require `auth.role() = 'authenticated'`.
+> Note: migration `0002_require_authenticated.sql` restricts the
+> `croissant_entries` table to the `authenticated` role, so only signed-in
+> users can read or write entries — the anon key alone is denied by RLS.
