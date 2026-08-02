@@ -17,3 +17,55 @@ When they bring the promised croissants, mark the debt as delivered!
 The tradition of bringing pastries when you're late is common in many European workplaces, particularly in France, Germany, and other countries. It's a lighthearted way to acknowledge lateness while treating your colleagues to something delicious.
 
 While croissants are the classic choice, the tradition can include any pastries, donuts, or treats that bring joy to the team. It's not about punishment—it's about building camaraderie and encouraging punctuality in a fun way!
+
+## 🗄️ Data Storage (Supabase)
+
+Croissant entries are stored in a [Supabase](https://supabase.com/) Postgres
+database via the official [`@nuxtjs/supabase`](https://supabase.nuxtjs.org/)
+module, so the tracker is shared across everyone who opens the app.
+
+### Setup
+
+1. Create a Supabase project.
+2. Run the SQL migrations in [`supabase/migrations/`](supabase/migrations) in
+   order (e.g. paste each into the SQL Editor):
+   [`0001_croissant_entries.sql`](supabase/migrations/0001_croissant_entries.sql)
+   creates the `croissant_entries` table, and
+   [`0002_require_authenticated.sql`](supabase/migrations/0002_require_authenticated.sql)
+   restricts it to signed-in users (see auth setup below).
+3. Copy `.env.example` to `.env` and fill in your project's API URL and
+   **anon** public key (Project Settings → API):
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   ```dotenv
+   SUPABASE_URL=https://your-project-ref.supabase.co
+   SUPABASE_KEY=your-anon-public-key
+   ```
+
+4. `pnpm install && pnpm dev`.
+
+## 🔐 Signing In (Magic Link)
+
+The app is gated behind **Supabase Auth** using passwordless **magic links**.
+Visitors are redirected to `/login`, enter their email, and receive a link that
+signs them in via `/confirm`. Only the `/about` page is public.
+
+To enable this in your Supabase project:
+
+1. **Authentication → Providers → Email**: make sure email sign-in is enabled.
+   (Magic links work with just an email — no password needed.)
+2. **Authentication → URL Configuration**: set the **Site URL** and add the
+   app's confirm URL to **Redirect URLs**, for both local and production, e.g.:
+
+   - `http://localhost:3000/confirm`
+   - `https://<your-username>.github.io/croissant-tracker/confirm`
+
+3. (Optional) Restrict who can sign in by disabling public sign-ups and
+   inviting users under **Authentication → Users**.
+
+> Note: migration `0002_require_authenticated.sql` restricts the
+> `croissant_entries` table to the `authenticated` role, so only signed-in
+> users can read or write entries — the anon key alone is denied by RLS.

@@ -11,6 +11,24 @@
         <p class="text-lg text-amber-700">Who owes croissants for being late?</p>
       </div>
 
+      <!-- Error banner -->
+      <UAlert
+        v-if="error"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-triangle-alert"
+        title="Couldn't reach the croissant database"
+        :description="error"
+        class="mb-8"
+      />
+
+      <!-- Loading state -->
+      <div v-if="pending" class="text-center py-12 text-amber-600">
+        <div class="text-4xl mb-2 animate-float">🥐</div>
+        <p>Loading croissant debts…</p>
+      </div>
+
+      <template v-else>
       <!-- Stats Cards -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <UCard class="croissant-shadow">
@@ -205,6 +223,7 @@
           </div>
         </div>
       </UCard>
+      </template>
     </div>
   </div>
 </template>
@@ -212,8 +231,9 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 
-// Reactive data
-const entries = ref([])
+// Entries are persisted in Supabase (see useCroissantEntries / supabase/migrations).
+const { entries, pending, error, fetchEntries, addEntry, markAsDelivered: deliverEntry } = useCroissantEntries()
+
 const newEntry = ref({
   name: '',
   date: new Date().toISOString().split('T')[0],
@@ -257,22 +277,15 @@ const leaderboard = computed(() => {
 })
 
 // Methods
-const addLateArrival = () => {
+const addLateArrival = async () => {
   if (!newEntry.value.name || !newEntry.value.date) return
-  
-  const entry = {
-    id: Date.now(),
-    name: newEntry.value.name.trim(),
+
+  await addEntry({
+    name: newEntry.value.name,
     date: newEntry.value.date,
-    reason: newEntry.value.reason.trim(),
-    delivered: false,
-    deliveredDate: null,
-    createdAt: new Date().toISOString()
-  }
-  
-  entries.value.push(entry)
-  saveToLocalStorage()
-  
+    reason: newEntry.value.reason
+  })
+
   // Reset form
   newEntry.value = {
     name: '',
@@ -281,14 +294,7 @@ const addLateArrival = () => {
   }
 }
 
-const markAsDelivered = (id) => {
-  const entry = entries.value.find(e => e.id === id)
-  if (entry) {
-    entry.delivered = true
-    entry.deliveredDate = new Date().toISOString().split('T')[0]
-    saveToLocalStorage()
-  }
-}
+const markAsDelivered = (id) => deliverEntry(id)
 
 const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString('en-US', {
@@ -298,24 +304,9 @@ const formatDate = (dateString) => {
   })
 }
 
-const saveToLocalStorage = () => {
-  if (import.meta.client) {
-    localStorage.setItem('croissant-tracker-entries', JSON.stringify(entries.value))
-  }
-}
-
-const loadFromLocalStorage = () => {
-  if (import.meta.client) {
-    const saved = localStorage.getItem('croissant-tracker-entries')
-    if (saved) {
-      entries.value = JSON.parse(saved)
-    }
-  }
-}
-
 // Lifecycle
 onMounted(() => {
-  loadFromLocalStorage()
+  fetchEntries()
 })
 
 // SEO
