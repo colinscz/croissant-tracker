@@ -11,6 +11,11 @@ leaderboard. Entries are persisted in a **Supabase** Postgres database via the
 official **`@nuxtjs/supabase`** module — the browser talks to Supabase directly
 with the anon key, so there is no custom backend/server to run.
 
+Entries belong to a **team**. Users manage teams at `/teams` (create a team, add
+existing profiles by email, remove members, delete a team), and only members of a
+team can read or write that team's entries — enforced by row-level security, not
+by the UI.
+
 Access requires signing in with a **Supabase Auth magic link** (passwordless
 email): the module's redirect middleware sends unauthenticated visitors to
 `/login`, and the emailed link returns them through `/confirm`. Only `/about`
@@ -59,15 +64,18 @@ app/
     ColorModeButton.vue# dark/light toggle with View Transitions animation
   pages/
     index.vue          # main tracker UI (the core file); persistence via composable
+    teams.vue          # team management: create, add/remove members by email, delete
     login.vue          # magic-link sign-in form (signInWithOtp)
     confirm.vue        # magic-link callback: completes sign-in, then redirects
     about.vue          # static informational page (public, no auth)
   composables/
     useCroissantEntries.ts # Supabase-backed entries state + CRUD helpers
+    useTeams.ts        # teams/membership state + CRUD; owns `activeTeamId`
   types/database.ts    # Supabase DB schema types (typed client)
   utils/links.ts       # currently EMPTY
 server/                # tsconfig only; no server routes (static app)
-supabase/migrations/   # SQL: croissant_entries table (0001) + authenticated-only RLS (0002)
+supabase/migrations/   # SQL: croissant_entries (0001), authenticated-only RLS (0002),
+                       #      teams + membership + RPCs (0003), team-scoped entries (0004)
 nuxt.config.ts
 .github/workflows/     # CI (lint commented out, typecheck runs) + GitHub Pages deploy
 ```
@@ -81,6 +89,17 @@ nuxt.config.ts
   by the Supabase `croissant_entries` table. Entries are fetched `onMounted`.
   DB columns are snake_case; the composable maps them to the camelCase shape the
   UI uses (`deliveredDate`, `createdAt`). There is no global store/Pinia.
+- **Teams**: `useTeams` (`app/composables/useTeams.ts`) follows the same shape and
+  owns `activeTeamId` (shared `useState`), which both `/` and `/teams` read.
+  `fetchEntries(teamId)` / `addEntry({ teamId, ... })` are always team-scoped.
+  Three `security definer` Postgres functions back the parts the anon key can't
+  do itself — `create_team` (team + owner row in one statement, since
+  `insert ... returning` would trip the RLS SELECT check before the
+  `on_team_created` trigger runs), `add_team_member_by_email` (resolves an email
+  via `auth.users`, which the browser can't query), and `list_team_members`
+  (member list with emails, restricted to that team's members). Call them with
+  `supabase.rpc(...)`; their `raise exception` messages surface as
+  `error.message` and render in a `UAlert`.
 - **Auth**: Magic-link (passwordless) via `@nuxtjs/supabase`. Route protection
   is configured in `nuxt.config.ts` under `supabase.redirect` /
   `redirectOptions` (`login: /login`, `callback: /confirm`, `exclude: [/about]`).

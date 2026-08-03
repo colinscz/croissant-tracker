@@ -5,6 +5,7 @@ import type { Database } from '~/types/database'
 // primary key assigned by Postgres.
 export interface CroissantEntry {
   id: number
+  teamId: string
   name: string
   date: string
   reason: string
@@ -19,6 +20,7 @@ const TABLE = 'croissant_entries'
 
 const fromRow = (row: EntryRow): CroissantEntry => ({
   id: row.id,
+  teamId: row.team_id,
   name: row.name,
   date: row.date,
   reason: row.reason ?? '',
@@ -33,6 +35,10 @@ const fromRow = (row: EntryRow): CroissantEntry => ({
  * Provides a reactive `entries` list plus CRUD helpers. State is shared across
  * components via `useState`, and changes are persisted to the
  * `croissant_entries` table.
+ *
+ * Entries belong to a team (migration 0004), so every call is scoped to one:
+ * `fetchEntries`/`addEntry` take the team id, and RLS independently rejects any
+ * team the signed-in user isn't a member of.
  */
 export const useCroissantEntries = () => {
   // Typed via the `supabase.types` path configured in nuxt.config.ts.
@@ -42,13 +48,21 @@ export const useCroissantEntries = () => {
   const pending = useState<boolean>('croissant-entries-pending', () => false)
   const error = useState<string | null>('croissant-entries-error', () => null)
 
-  const fetchEntries = async () => {
-    pending.value = true
+  const fetchEntries = async (teamId: string | null) => {
     error.value = null
+
+    // No team selected yet (e.g. the user isn't on one) — nothing to show.
+    if (!teamId) {
+      entries.value = []
+      return
+    }
+
+    pending.value = true
 
     const { data, error: fetchError } = await supabase
       .from(TABLE)
       .select('*')
+      .eq('team_id', teamId)
       .order('date', { ascending: false })
 
     if (fetchError) {
@@ -61,12 +75,13 @@ export const useCroissantEntries = () => {
     pending.value = false
   }
 
-  const addEntry = async (input: { name: string, date: string, reason?: string }) => {
+  const addEntry = async (input: { teamId: string, name: string, date: string, reason?: string }) => {
     error.value = null
 
     const { data, error: insertError } = await supabase
       .from(TABLE)
       .insert({
+        team_id: input.teamId,
         name: input.name.trim(),
         date: input.date,
         reason: input.reason?.trim() ?? '',
