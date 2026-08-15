@@ -96,10 +96,17 @@ nuxt.config.ts
   do itself — `create_team` (team + owner row in one statement, since
   `insert ... returning` would trip the RLS SELECT check before the
   `on_team_created` trigger runs), `add_team_member_by_email` (resolves an email
-  via `auth.users`, which the browser can't query), and `list_team_members`
-  (member list with emails, restricted to that team's members). Call them with
-  `supabase.rpc(...)`; their `raise exception` messages surface as
-  `error.message` and render in a `UAlert`.
+  to a profile), and `list_team_members` (member list with emails, restricted to
+  that team's members). Call them with `supabase.rpc(...)`; their
+  `raise exception` messages surface as `error.message` and render in a `UAlert`.
+- **Profiles**: `public.profiles` is *not* created by this repo — it already
+  exists in the Supabase project. Migration `0005` adds an `email` column to it
+  and keeps it in step with `auth.users` via the `sync_profile_from_auth_user`
+  trigger, which fires on insert (i.e. when a magic link is *requested*) and on
+  email change. `team_members.profile_id` has an FK to `profiles`, so a missing
+  profile row breaks team creation — that trigger plus `0005`'s backfill is what
+  guarantees one exists. Reads of `profiles` are limited to your own row plus
+  teammates' (`shares_team_with`), since the table now holds email addresses.
 - **Auth**: Magic-link (passwordless) via `@nuxtjs/supabase`. Route protection
   is configured in `nuxt.config.ts` under `supabase.redirect` /
   `redirectOptions` (`login: /login`, `callback: /confirm`, `exclude: [/about]`).

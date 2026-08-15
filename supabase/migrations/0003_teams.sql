@@ -6,11 +6,16 @@
 --
 -- Membership references `public.profiles` (the standard Supabase profile table,
 -- whose `id` is the `auth.users` id). Members are added by the email address on
--- their Supabase account — but `profiles` has no email column and `auth.users`
--- is not readable from the browser, so the lookup happens in the
--- `add_team_member_by_email` security-definer function below rather than in the
--- client. That keeps the app from exposing a queryable directory of everyone's
--- email address to any signed-in user.
+-- their Supabase account. That lookup happens in the `add_team_member_by_email`
+-- security-definer function below rather than in the client, so the app never
+-- exposes a queryable directory of everyone's email address.
+--
+-- NOTE: migration 0005 supersedes parts of this file. It adds `email` to
+-- `public.profiles` and creates profile rows automatically from a trigger on
+-- `auth.users` — without which team creation fails on the `team_members`
+-- foreign key. It also replaces `create_team`, `add_team_member_by_email` and
+-- `list_team_members` with versions that read `profiles.email` directly instead
+-- of joining `auth.users`. Apply 0005 too; don't edit this file.
 
 create table if not exists public.teams (
   id         uuid primary key default gen_random_uuid(),
