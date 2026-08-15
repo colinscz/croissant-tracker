@@ -39,6 +39,9 @@ module, so the tracker is shared across everyone who opens the app.
    ties each entry to a team, and
    [`0005_profiles_email.sql`](supabase/migrations/0005_profiles_email.sql) adds
    an `email` column to `public.profiles` and creates profile rows automatically.
+   [`0006_prune_profiles_without_email.sql`](supabase/migrations/0006_prune_profiles_without_email.sql)
+   is optional housekeeping: it re-runs the backfill and deletes profiles that
+   still have no usable email.
 
    > ⚠️ `0004` **deletes all existing croissant entries.** They predate teams, so
    > there's no way to tell which team each one belonged to.
@@ -47,6 +50,12 @@ module, so the tracker is shared across everyone who opens the app.
    (the standard Supabase profile table). After `0005`, a profile is created
    automatically the first time someone requests a magic link, and existing users
    are backfilled — so there's nothing to do by hand.
+
+   > ⚠️ `0006` **deletes data**: removing a profile cascades to its team
+   > memberships, and any team whose owners are *all* being pruned is deleted
+   > along with its croissant entries. Its header has two dry-run queries — run
+   > them first and check what comes back. Skip this migration entirely if you
+   > have no email-less profiles to clean up.
 
    > ⚠️ Read the header of `0005` before applying it. It installs a trigger on
    > `auth.users`, and a trigger that fails aborts the insert that fired it — so

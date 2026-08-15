@@ -75,7 +75,9 @@ app/
   utils/links.ts       # currently EMPTY
 server/                # tsconfig only; no server routes (static app)
 supabase/migrations/   # SQL: croissant_entries (0001), authenticated-only RLS (0002),
-                       #      teams + membership + RPCs (0003), team-scoped entries (0004)
+                       #      teams + membership + RPCs (0003), team-scoped entries (0004),
+                       #      profiles.email + auto-create trigger (0005),
+                       #      backfill + prune email-less profiles (0006, destructive)
 nuxt.config.ts
 .github/workflows/     # CI (lint commented out, typecheck runs) + GitHub Pages deploy
 ```
