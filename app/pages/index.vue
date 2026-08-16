@@ -22,10 +22,38 @@
         class="mb-8"
       />
 
+      <!-- Team selector: entries belong to a team, so pick which one you're looking at -->
+      <div v-if="teams.length > 1" class="flex items-center justify-center gap-3 mb-8">
+        <span class="text-sm font-medium text-amber-700">Team</span>
+        <USelect
+          v-model="activeTeamId"
+          :items="teamOptions"
+          value-key="value"
+          icon="i-lucide-users"
+          class="w-56"
+        />
+      </div>
+      <div v-else-if="activeTeam" class="text-center text-sm text-amber-600 mb-8">
+        Team: <span class="font-semibold text-amber-800">{{ activeTeam.name }}</span>
+      </div>
+
       <!-- Loading state -->
-      <div v-if="pending" class="text-center py-12 text-amber-600">
+      <div v-if="pending || teamsPending" class="text-center py-12 text-amber-600">
         <div class="text-4xl mb-2 animate-float">🥐</div>
         <p>Loading croissant debts…</p>
+      </div>
+
+      <!-- Not on a team yet: there's nowhere to log a late arrival -->
+      <div v-else-if="!activeTeamId" class="text-center py-12 text-amber-600">
+        <div class="text-4xl mb-2">👥</div>
+        <p class="mb-1 font-semibold text-amber-800">You're not on a team yet</p>
+        <p class="mb-6">Croissant debts are tracked per team, so create or join one to get started.</p>
+        <UButton to="/teams" class="croissant-gradient text-white font-semibold" size="lg">
+          <div class="flex items-center gap-2">
+            <span>Go to Teams</span>
+            <div class="text-lg">🥐</div>
+          </div>
+        </UButton>
       </div>
 
       <template v-else>
@@ -229,10 +257,15 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 
 // Entries are persisted in Supabase (see useCroissantEntries / supabase/migrations).
 const { entries, pending, error, fetchEntries, addEntry, markAsDelivered: deliverEntry } = useCroissantEntries()
+
+// Entries belong to a team, so the tracker always shows one team at a time.
+const { teams, activeTeamId, activeTeam, pending: teamsPending, fetchTeams } = useTeams()
+
+const teamOptions = computed(() => teams.value.map(team => ({ label: team.name, value: team.id })))
 
 const newEntry = ref({
   name: '',
@@ -278,9 +311,10 @@ const leaderboard = computed(() => {
 
 // Methods
 const addLateArrival = async () => {
-  if (!newEntry.value.name || !newEntry.value.date) return
+  if (!newEntry.value.name || !newEntry.value.date || !activeTeamId.value) return
 
   await addEntry({
+    teamId: activeTeamId.value,
     name: newEntry.value.name,
     date: newEntry.value.date,
     reason: newEntry.value.reason
@@ -304,10 +338,13 @@ const formatDate = (dateString) => {
   })
 }
 
-// Lifecycle
-onMounted(() => {
-  fetchEntries()
+// Lifecycle: teams first, since the entries query is scoped to the active one.
+onMounted(async () => {
+  await fetchTeams()
+  await fetchEntries(activeTeamId.value)
 })
+
+watch(activeTeamId, teamId => fetchEntries(teamId))
 
 // SEO
 useHead({

@@ -30,9 +30,39 @@ module, so the tracker is shared across everyone who opens the app.
 2. Run the SQL migrations in [`supabase/migrations/`](supabase/migrations) in
    order (e.g. paste each into the SQL Editor):
    [`0001_croissant_entries.sql`](supabase/migrations/0001_croissant_entries.sql)
-   creates the `croissant_entries` table, and
+   creates the `croissant_entries` table,
    [`0002_require_authenticated.sql`](supabase/migrations/0002_require_authenticated.sql)
-   restricts it to signed-in users (see auth setup below).
+   restricts it to signed-in users (see auth setup below),
+   [`0003_teams.sql`](supabase/migrations/0003_teams.sql) adds teams and team
+   membership, and
+   [`0004_team_scoped_entries.sql`](supabase/migrations/0004_team_scoped_entries.sql)
+   ties each entry to a team, and
+   [`0005_profiles_email.sql`](supabase/migrations/0005_profiles_email.sql) adds
+   an `email` column to `public.profiles` and creates profile rows automatically.
+   [`0006_prune_profiles_without_email.sql`](supabase/migrations/0006_prune_profiles_without_email.sql)
+   is optional housekeeping: it re-runs the backfill and deletes profiles that
+   still have no usable email.
+
+   > ⚠️ `0004` **deletes all existing croissant entries.** They predate teams, so
+   > there's no way to tell which team each one belonged to.
+
+   These migrations expect a `public.profiles` table keyed on the `auth.users` id
+   (the standard Supabase profile table). After `0005`, a profile is created
+   automatically the first time someone requests a magic link, and existing users
+   are backfilled — so there's nothing to do by hand.
+
+   > ⚠️ `0006` **deletes data**: removing a profile cascades to its team
+   > memberships, and any team whose owners are *all* being pruned is deleted
+   > along with its croissant entries. Its header has two dry-run queries — run
+   > them first and check what comes back. Skip this migration entirely if you
+   > have no email-less profiles to clean up.
+
+   > ⚠️ Read the header of `0005` before applying it. It installs a trigger on
+   > `auth.users`, and a trigger that fails aborts the insert that fired it — so
+   > if your `profiles` table has a `NOT NULL` column without a default, sign-in
+   > itself breaks. The header has a one-line query to check. It also drops the
+   > quickstart "public profiles are viewable by everyone" policy, since profiles
+   > now hold email addresses; verify the policy name in your project matches.
 3. Copy `.env.example` to `.env` and fill in your project's API URL and
    **anon** public key (Project Settings → API):
 
@@ -46,6 +76,31 @@ module, so the tracker is shared across everyone who opens the app.
    ```
 
 4. `pnpm install && pnpm dev`.
+
+## 👥 Teams
+
+Croissant debts belong to a **team**, not to everyone with an account. Head to
+**/teams** to:
+
+- **Create a team** — whoever creates it becomes its owner.
+- **Add members by email** — enter the email address on their Croissant Tracker
+  account. A profile is created as soon as someone requests a magic link, so they
+  need to have hit the sign-in page once; they don't have to have clicked the link
+  yet, which makes this a rough-and-ready invite.
+- **Remove members / delete a team** — owners can remove anyone and delete the
+  team (which deletes its entries too). Anyone can leave a team themselves, and a
+  team always keeps at least one owner.
+
+You can be on as many teams as you like; the tracker page has a selector to
+choose which team's debts you're looking at.
+
+This is enforced in the database, not just the UI: row-level security in
+[`0004_team_scoped_entries.sql`](supabase/migrations/0004_team_scoped_entries.sql)
+means a signed-in user simply cannot read or write entries for a team they're not
+a member of. Email lookup happens in a `security definer` Postgres function
+rather than in the browser, and `profiles` rows are readable only to yourself and
+people you share a team with — so the app never exposes a queryable directory of
+everyone's email address.
 
 ## 🔐 Signing In (Magic Link)
 

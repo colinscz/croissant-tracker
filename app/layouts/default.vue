@@ -6,6 +6,10 @@ const navLinks: NavigationMenuItem[] = [{
   icon: 'i-lucide-home',
   to: '/'
 },{
+  label: 'Teams',
+  icon: 'i-lucide-users',
+  to: '/teams'
+},{
   label: 'About',
   icon: 'i-lucide-user',
   to: '/about'
