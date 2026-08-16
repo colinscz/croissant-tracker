@@ -1,15 +1,11 @@
 <template>
   <div class="p-4">
     <div class="max-w-4xl mx-auto">
-      <!-- Header -->
-      <div class="text-center mb-8">
-        <div class="inline-flex items-center gap-3 mb-4">
-          <div class="text-6xl animate-float">🥐</div>
-          <h1 class="text-4xl font-bold text-amber-800">Teams</h1>
-          <div class="text-6xl animate-float" style="animation-delay: 0.5s">🥐</div>
-        </div>
-        <p class="text-lg text-amber-700">Croissant debts are tracked per team — only members can see them</p>
-      </div>
+      <PageHero
+        title="Teams"
+        icon="i-lucide-users"
+        subtitle="Croissant debts are tracked per team — only members can see them"
+      />
 
       <!-- Error banner -->
       <UAlert
@@ -24,76 +20,89 @@
 
       <div class="space-y-8">
         <!-- Create a team -->
-        <UCard class="croissant-shadow">
-          <template #header>
-            <div class="flex items-center gap-2">
-              <div class="text-2xl">➕</div>
-              <h2 class="text-xl font-semibold text-amber-800">Create a Team</h2>
-            </div>
-          </template>
-
-          <UForm :state="newTeam" class="space-y-4" @submit="createNewTeam">
-            <UFormField label="Team name" required>
+        <SectionCard
+          title="Create a Team"
+          icon="i-lucide-user-plus"
+        >
+          <UForm
+            :state="newTeam"
+            class="space-y-4"
+            @submit="createNewTeam"
+          >
+            <UFormField
+              label="Team name"
+              required
+            >
               <UInput
                 v-model="newTeam.name"
                 placeholder="Marketing, Team Rocket, The Usual Suspects…"
+                class="w-full"
               />
             </UFormField>
 
             <UButton
               type="submit"
-              class="w-full croissant-gradient text-white font-semibold"
               size="lg"
+              icon="i-lucide-plus"
               :loading="creating"
+              class="w-full justify-center croissant-gradient text-white font-semibold"
             >
-              <div class="flex items-center gap-2">
-                <span>Create Team</span>
-                <div class="text-lg">🥐</div>
-              </div>
+              Create Team
             </UButton>
           </UForm>
-        </UCard>
+        </SectionCard>
 
         <!-- Your teams -->
-        <UCard class="croissant-shadow">
-          <template #header>
-            <div class="flex items-center gap-2">
-              <div class="text-2xl">👥</div>
-              <h2 class="text-xl font-semibold text-amber-800">Your Teams</h2>
-            </div>
-          </template>
+        <SectionCard
+          title="Your Teams"
+          icon="i-lucide-users"
+        >
+          <EmptyState
+            v-if="pending && teams.length === 0"
+            loading
+            description="Loading your teams…"
+          />
 
-          <div v-if="pending && teams.length === 0" class="text-center py-8 text-amber-600">
-            <div class="text-4xl mb-2 animate-float">🥐</div>
-            <p>Loading your teams…</p>
-          </div>
+          <EmptyState
+            v-else-if="teams.length === 0"
+            icon="i-lucide-package-open"
+            description="You're not on a team yet. Create one above to start tracking!"
+          />
 
-          <div v-else-if="teams.length === 0" class="text-center py-8 text-amber-600">
-            <div class="text-4xl mb-2">🫙</div>
-            <p>You're not on a team yet. Create one above to start tracking!</p>
-          </div>
-
-          <div v-else class="space-y-3">
+          <div
+            v-else
+            class="space-y-3"
+          >
             <div
               v-for="team in teams"
               :key="team.id"
-              class="flex items-center justify-between p-3 rounded-lg border cursor-pointer"
+              class="flex items-center justify-between gap-3 p-3 rounded-lg border cursor-pointer transition-colors"
               :class="team.id === selectedTeamId
-                ? 'bg-orange-50 border-orange-300'
-                : 'bg-amber-50 border-amber-200'"
+                ? 'bg-primary/10 border-primary/30'
+                : 'bg-elevated/50 border-default hover:border-accented'"
               @click="selectTeam(team.id)"
             >
               <div>
-                <div class="font-semibold text-amber-800 flex items-center gap-2">
+                <div class="font-semibold text-highlighted flex items-center gap-2">
                   <span>{{ team.name }}</span>
-                  <UBadge v-if="team.role === 'owner'" color="primary" variant="subtle" size="sm">
+                  <UBadge
+                    v-if="team.role === 'owner'"
+                    color="primary"
+                    variant="subtle"
+                    size="sm"
+                  >
                     Owner
                   </UBadge>
-                  <UBadge v-if="team.id === activeTeamId" color="success" variant="subtle" size="sm">
+                  <UBadge
+                    v-if="team.id === activeTeamId"
+                    color="success"
+                    variant="subtle"
+                    size="sm"
+                  >
                     Active
                   </UBadge>
                 </div>
-                <div class="text-sm text-amber-600">
+                <div class="text-sm text-muted">
                   {{ memberCount(team.id) }}
                 </div>
               </div>
@@ -109,40 +118,53 @@
               />
             </div>
           </div>
-        </UCard>
+        </SectionCard>
 
         <!-- Members of the selected team -->
-        <UCard v-if="selectedTeam" class="croissant-shadow">
-          <template #header>
-            <div class="flex items-center gap-2">
-              <div class="text-2xl">📇</div>
-              <h2 class="text-xl font-semibold text-amber-800">
-                Members of {{ selectedTeam.name }}
-              </h2>
-            </div>
-          </template>
+        <SectionCard
+          v-if="selectedTeam"
+          :title="`Members of ${selectedTeam.name}`"
+          icon="i-lucide-contact"
+        >
+          <p
+            v-if="selectedMembers.length === 0"
+            class="text-center py-8 text-muted"
+          >
+            No members loaded yet.
+          </p>
 
-          <div v-if="selectedMembers.length === 0" class="text-center py-8 text-amber-600">
-            <p>No members loaded yet.</p>
-          </div>
-
-          <div v-else class="space-y-2">
+          <div
+            v-else
+            class="space-y-2"
+          >
             <div
               v-for="member in selectedMembers"
               :key="member.profileId"
-              class="flex items-center justify-between p-3 bg-amber-50 rounded-lg border border-amber-200"
+              class="flex items-center justify-between gap-3 p-3 rounded-lg bg-elevated/50 border border-default"
             >
               <div>
-                <div class="font-semibold text-amber-800 flex items-center gap-2">
+                <div class="font-semibold text-highlighted flex items-center gap-2">
                   <span>{{ memberLabel(member) }}</span>
-                  <UBadge v-if="member.role === 'owner'" color="primary" variant="subtle" size="sm">
+                  <UBadge
+                    v-if="member.role === 'owner'"
+                    color="primary"
+                    variant="subtle"
+                    size="sm"
+                  >
                     Owner
                   </UBadge>
-                  <UBadge v-if="member.profileId === currentProfileId" color="neutral" variant="subtle" size="sm">
+                  <UBadge
+                    v-if="member.profileId === currentProfileId"
+                    color="neutral"
+                    variant="subtle"
+                    size="sm"
+                  >
                     You
                   </UBadge>
                 </div>
-                <div class="text-sm text-amber-600">{{ member.email }}</div>
+                <div class="text-sm text-muted">
+                  {{ member.email }}
+                </div>
               </div>
 
               <UButton
@@ -158,8 +180,15 @@
             </div>
           </div>
 
-          <template v-if="selectedTeam.role === 'owner'" #footer>
-            <UForm :state="newMember" class="space-y-4" @submit="addMember">
+          <template
+            v-if="selectedTeam.role === 'owner'"
+            #footer
+          >
+            <UForm
+              :state="newMember"
+              class="space-y-4"
+              @submit="addMember"
+            >
               <UFormField
                 label="Add a member by email"
                 required
@@ -171,41 +200,52 @@
                   placeholder="colleague@example.com"
                   autocomplete="off"
                   icon="i-lucide-mail"
+                  class="w-full"
                 />
               </UFormField>
 
               <UButton
                 type="submit"
-                class="w-full croissant-gradient text-white font-semibold"
                 size="lg"
+                icon="i-lucide-user-plus"
                 :loading="addingMember"
+                class="w-full justify-center croissant-gradient text-white font-semibold"
               >
-                <div class="flex items-center gap-2">
-                  <span>Add to Team</span>
-                  <div class="text-lg">✉️</div>
-                </div>
+                Add to Team
               </UButton>
             </UForm>
           </template>
-        </UCard>
+        </SectionCard>
       </div>
     </div>
 
     <!-- Delete confirmation -->
-    <UModal v-model:open="deleteOpen" title="Delete this team?">
+    <UModal
+      v-model:open="deleteOpen"
+      title="Delete this team?"
+    >
       <template #body>
-        <p class="text-amber-700">
-          Deleting <span class="font-semibold">{{ teamToDelete?.name }}</span> also deletes every
+        <p class="text-muted">
+          Deleting <span class="font-semibold text-highlighted">{{ teamToDelete?.name }}</span> also deletes every
           croissant entry logged for it. This can't be undone.
         </p>
       </template>
 
       <template #footer>
         <div class="flex justify-end gap-2 w-full">
-          <UButton color="neutral" variant="ghost" @click="deleteOpen = false">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            @click="deleteOpen = false"
+          >
             Cancel
           </UButton>
-          <UButton color="error" :loading="deleting" @click="deleteSelectedTeam">
+          <UButton
+            color="error"
+            icon="i-lucide-trash-2"
+            :loading="deleting"
+            @click="deleteSelectedTeam"
+          >
             Delete team
           </UButton>
         </div>
@@ -331,7 +371,7 @@ onMounted(async () => {
 })
 
 useHead({
-  title: 'Teams - Croissant Tracker',
+  title: 'Teams — Croissant Tracker',
   meta: [
     { name: 'description', content: 'Create teams and assign colleagues to them so croissant debts stay within the group.' }
   ]

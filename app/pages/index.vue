@@ -1,15 +1,10 @@
 <template>
   <div class="p-4">
     <div class="max-w-6xl mx-auto">
-      <!-- Header -->
-      <div class="text-center mb-8">
-        <div class="inline-flex items-center gap-3 mb-4">
-          <div class="text-6xl animate-float">🥐</div>
-          <h1 class="text-4xl font-bold text-amber-800">Croissant Tracker</h1>
-          <div class="text-6xl animate-float" style="animation-delay: 0.5s">🥐</div>
-        </div>
-        <p class="text-lg text-amber-700">Who owes croissants for being late?</p>
-      </div>
+      <PageHero
+        title="Croissant Tracker"
+        subtitle="Who owes croissants for being late?"
+      />
 
       <!-- Error banner -->
       <UAlert
@@ -23,8 +18,11 @@
       />
 
       <!-- Team selector: entries belong to a team, so pick which one you're looking at -->
-      <div v-if="teams.length > 1" class="flex items-center justify-center gap-3 mb-8">
-        <span class="text-sm font-medium text-amber-700">Team</span>
+      <div
+        v-if="teams.length > 1"
+        class="flex items-center justify-center gap-3 mb-8"
+      >
+        <span class="text-sm font-medium text-muted">Team</span>
         <USelect
           v-model="activeTeamId"
           :items="teamOptions"
@@ -33,229 +31,265 @@
           class="w-56"
         />
       </div>
-      <div v-else-if="activeTeam" class="text-center text-sm text-amber-600 mb-8">
-        Team: <span class="font-semibold text-amber-800">{{ activeTeam.name }}</span>
+      <div
+        v-else-if="activeTeam"
+        class="text-center text-sm text-muted mb-8"
+      >
+        Team: <span class="font-semibold text-highlighted">{{ activeTeam.name }}</span>
       </div>
 
       <!-- Loading state -->
-      <div v-if="pending || teamsPending" class="text-center py-12 text-amber-600">
-        <div class="text-4xl mb-2 animate-float">🥐</div>
-        <p>Loading croissant debts…</p>
-      </div>
+      <EmptyState
+        v-if="pending || teamsPending"
+        loading
+        description="Loading croissant debts…"
+      />
 
       <!-- Not on a team yet: there's nowhere to log a late arrival -->
-      <div v-else-if="!activeTeamId" class="text-center py-12 text-amber-600">
-        <div class="text-4xl mb-2">👥</div>
-        <p class="mb-1 font-semibold text-amber-800">You're not on a team yet</p>
-        <p class="mb-6">Croissant debts are tracked per team, so create or join one to get started.</p>
-        <UButton to="/teams" class="croissant-gradient text-white font-semibold" size="lg">
-          <div class="flex items-center gap-2">
-            <span>Go to Teams</span>
-            <div class="text-lg">🥐</div>
-          </div>
+      <EmptyState
+        v-else-if="!activeTeamId"
+        icon="i-lucide-users"
+        title="You're not on a team yet"
+        description="Croissant debts are tracked per team, so create or join one to get started."
+      >
+        <UButton
+          to="/teams"
+          size="lg"
+          trailing-icon="i-lucide-arrow-right"
+          class="croissant-gradient text-white font-semibold"
+        >
+          Go to Teams
         </UButton>
-      </div>
+      </EmptyState>
 
       <template v-else>
-      <!-- Stats Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <UCard class="croissant-shadow">
-          <div class="text-center">
-            <div class="text-3xl mb-2">📊</div>
-            <div class="text-2xl font-bold text-amber-800">{{ totalLateCount }}</div>
-            <div class="text-sm text-amber-600">Total Late Arrivals</div>
-          </div>
-        </UCard>
-        
-        <UCard class="croissant-shadow">
-          <div class="text-center">
-            <div class="text-3xl mb-2">🥐</div>
-            <div class="text-2xl font-bold text-orange-600">{{ pendingCroissants }}</div>
-            <div class="text-sm text-amber-600">Croissants Owed</div>
-          </div>
-        </UCard>
-        
-        <UCard class="croissant-shadow">
-          <div class="text-center">
-            <div class="text-3xl mb-2">✅</div>
-            <div class="text-2xl font-bold text-green-600">{{ deliveredCroissants }}</div>
-            <div class="text-sm text-amber-600">Croissants Delivered</div>
-          </div>
-        </UCard>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <!-- Add New Late Arrival -->
-        <UCard class="croissant-shadow">
-          <template #header>
-            <div class="flex items-center gap-2">
-              <div class="text-2xl">⏰</div>
-              <h2 class="text-xl font-semibold text-amber-800">Add Late Arrival</h2>
-            </div>
-          </template>
-          
-          <UForm :state="newEntry" class="space-y-4" @submit="addLateArrival">
-            <UFormField label="Name" required>
-              <UInput 
-                v-model="newEntry.name" 
-                placeholder="Who was late?"
-                :ui="{ base: 'focus:ring-amber-500 focus:border-amber-500' }"
-              />
-            </UFormField>
-            
-            <UFormField label="Date" required>
-              <UInput 
-                v-model="newEntry.date" 
-                type="date"
-                :ui="{ base: 'focus:ring-amber-500 focus:border-amber-500' }"
-              />
-            </UFormField>
-            
-            <UFormField label="Reason (optional)">
-              <UTextarea 
-                v-model="newEntry.reason" 
-                placeholder="Why were they late?"
-                :ui="{ base: 'focus:ring-amber-500 focus:border-amber-500' }"
-              />
-            </UFormField>
-            
-            <UButton 
-              type="submit" 
-              class="w-full croissant-gradient text-white font-semibold"
-              size="lg"
-            >
-              <div class="flex items-center gap-2">
-                <span>Add to Tracker</span>
-                <div class="text-lg">🥐</div>
-              </div>
-            </UButton>
-          </UForm>
-        </UCard>
-
-        <!-- Current Debts -->
-        <UCard class="croissant-shadow">
-          <template #header>
-            <div class="flex items-center gap-2">
-              <div class="text-2xl">🥐</div>
-              <h2 class="text-xl font-semibold text-amber-800">Current Croissant Debts</h2>
-            </div>
-          </template>
-          
-          <div v-if="currentDebts.length === 0" class="text-center py-8 text-amber-600">
-            <div class="text-4xl mb-2">🎉</div>
-            <p>No one owes croissants right now!</p>
-          </div>
-          
-          <div v-else class="space-y-3">
-            <div 
-              v-for="debt in currentDebts" 
-              :key="debt.id"
-              class="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200"
-            >
-              <div>
-                <div class="font-semibold text-amber-800">{{ debt.name }}</div>
-                <div class="text-sm text-amber-600">{{ formatDate(debt.date) }}</div>
-                <div v-if="debt.reason" class="text-xs text-amber-500 italic">{{ debt.reason }}</div>
-              </div>
-              <UButton
-                color="success"
-                size="sm"
-                class="flex items-center gap-1"
-                @click="markAsDelivered(debt.id)"
-              >
-                <span>Delivered</span>
-                <div class="text-sm">✅</div>
-              </UButton>
-            </div>
-          </div>
-        </UCard>
-      </div>
-
-      <!-- Leaderboard -->
-      <UCard class="croissant-shadow mt-8">
-        <template #header>
-          <div class="flex items-center gap-2">
-            <div class="text-2xl">🏆</div>
-            <h2 class="text-xl font-semibold text-amber-800">Late Arrival Leaderboard</h2>
-          </div>
-        </template>
-        
-        <div v-if="leaderboard.length === 0" class="text-center py-8 text-amber-600">
-          <p>No data yet. Add some late arrivals to see the leaderboard!</p>
+        <!-- Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <StatCard
+            icon="i-lucide-clock"
+            :value="totalLateCount"
+            label="Total Late Arrivals"
+          />
+          <StatCard
+            icon="i-lucide-croissant"
+            color="warning"
+            :value="pendingCroissants"
+            label="Croissants Owed"
+          />
+          <StatCard
+            icon="i-lucide-circle-check"
+            color="success"
+            :value="deliveredCroissants"
+            label="Croissants Delivered"
+          />
         </div>
-        
-        <div v-else class="space-y-2">
-          <div 
-            v-for="(person, index) in leaderboard" 
-            :key="person.name"
-            class="flex items-center justify-between p-3 rounded-lg"
-            :class="[
-              index === 0 ? 'bg-yellow-100 border border-yellow-300' : 
-              index === 1 ? 'bg-gray-100 border border-gray-300' : 
-              index === 2 ? 'bg-orange-100 border border-orange-300' : 
-              'bg-amber-50 border border-amber-200'
-            ]"
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <!-- Add New Late Arrival -->
+          <SectionCard
+            title="Add Late Arrival"
+            icon="i-lucide-clock-plus"
           >
-            <div class="flex items-center gap-3">
-              <div class="text-2xl">
-                {{ index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '📍' }}
+            <UForm
+              :state="newEntry"
+              class="space-y-4"
+              @submit="addLateArrival"
+            >
+              <UFormField
+                label="Name"
+                required
+              >
+                <UInput
+                  v-model="newEntry.name"
+                  placeholder="Who was late?"
+                  class="w-full"
+                />
+              </UFormField>
+
+              <UFormField
+                label="Date"
+                required
+              >
+                <UInput
+                  v-model="newEntry.date"
+                  type="date"
+                  class="w-full"
+                />
+              </UFormField>
+
+              <UFormField label="Reason (optional)">
+                <UTextarea
+                  v-model="newEntry.reason"
+                  placeholder="Why were they late?"
+                  class="w-full"
+                />
+              </UFormField>
+
+              <UButton
+                type="submit"
+                size="lg"
+                icon="i-lucide-plus"
+                class="w-full justify-center croissant-gradient text-white font-semibold"
+              >
+                Add to Tracker
+              </UButton>
+            </UForm>
+          </SectionCard>
+
+          <!-- Current Debts -->
+          <SectionCard
+            title="Current Croissant Debts"
+            icon="i-lucide-croissant"
+          >
+            <EmptyState
+              v-if="currentDebts.length === 0"
+              icon="i-lucide-party-popper"
+              description="No one owes croissants right now!"
+            />
+
+            <div
+              v-else
+              class="space-y-3"
+            >
+              <div
+                v-for="debt in currentDebts"
+                :key="debt.id"
+                class="flex items-center justify-between gap-3 p-3 rounded-lg bg-warning/10 border border-warning/20"
+              >
+                <div>
+                  <div class="font-semibold text-highlighted">
+                    {{ debt.name }}
+                  </div>
+                  <div class="text-sm text-muted">
+                    {{ formatDate(debt.date) }}
+                  </div>
+                  <div
+                    v-if="debt.reason"
+                    class="text-xs text-dimmed italic"
+                  >
+                    {{ debt.reason }}
+                  </div>
+                </div>
+                <UButton
+                  color="success"
+                  size="sm"
+                  icon="i-lucide-check"
+                  class="shrink-0"
+                  @click="markAsDelivered(debt.id)"
+                >
+                  Delivered
+                </UButton>
               </div>
-              <div>
-                <div class="font-semibold text-amber-800">{{ person.name }}</div>
-                <div class="text-sm text-amber-600">
-                  {{ person.count }} late arrival{{ person.count !== 1 ? 's' : '' }}
+            </div>
+          </SectionCard>
+        </div>
+
+        <!-- Leaderboard -->
+        <div class="mt-8">
+          <SectionCard
+            title="Late Arrival Leaderboard"
+            icon="i-lucide-trophy"
+          >
+            <p
+              v-if="leaderboard.length === 0"
+              class="text-center py-8 text-muted"
+            >
+              No data yet. Add some late arrivals to see the leaderboard!
+            </p>
+
+            <div
+              v-else
+              class="space-y-2"
+            >
+              <div
+                v-for="(person, index) in leaderboard"
+                :key="person.name"
+                class="flex items-center justify-between gap-3 p-3 rounded-lg border"
+                :class="index < 3 ? 'bg-primary/10 border-primary/25' : 'bg-elevated/50 border-default'"
+              >
+                <div class="flex items-center gap-3">
+                  <span
+                    class="inline-flex items-center justify-center size-8 shrink-0 rounded-full font-bold tabular-nums text-sm"
+                    :class="index < 3 ? 'bg-primary text-inverted' : 'bg-accented text-muted'"
+                  >
+                    <span class="sr-only">Rank</span>{{ index + 1 }}
+                  </span>
+                  <div>
+                    <div class="font-semibold text-highlighted">
+                      {{ person.name }}
+                    </div>
+                    <div class="text-sm text-muted">
+                      {{ person.count }} late arrival{{ person.count !== 1 ? 's' : '' }}
+                    </div>
+                  </div>
+                </div>
+                <div class="text-right text-sm text-muted">
+                  {{ person.delivered }} delivered, {{ person.pending }} pending
                 </div>
               </div>
             </div>
-            <div class="text-right">
-              <div class="text-sm text-amber-600">
-                {{ person.delivered }} delivered, {{ person.pending }} pending
-              </div>
-            </div>
-          </div>
+          </SectionCard>
         </div>
-      </UCard>
 
-      <!-- Recent History -->
-      <UCard class="croissant-shadow mt-8">
-        <template #header>
-          <div class="flex items-center gap-2">
-            <div class="text-2xl">📋</div>
-            <h2 class="text-xl font-semibold text-amber-800">Recent History</h2>
-          </div>
-        </template>
-        
-        <div v-if="recentEntries.length === 0" class="text-center py-8 text-amber-600">
-          <p>No history yet. Start tracking late arrivals!</p>
-        </div>
-        
-        <div v-else class="space-y-2">
-          <div 
-            v-for="entry in recentEntries" 
-            :key="entry.id"
-            class="flex items-center justify-between p-3 bg-amber-50 rounded-lg border border-amber-200"
+        <!-- Recent History -->
+        <div class="mt-8">
+          <SectionCard
+            title="Recent History"
+            icon="i-lucide-history"
           >
-            <div>
-              <div class="font-semibold text-amber-800">{{ entry.name }}</div>
-              <div class="text-sm text-amber-600">{{ formatDate(entry.date) }}</div>
-              <div v-if="entry.reason" class="text-xs text-amber-500 italic">{{ entry.reason }}</div>
-            </div>
-            <div class="text-right">
-              <div class="text-sm font-medium" :class="entry.delivered ? 'text-green-600' : 'text-orange-600'">
-                {{ entry.delivered ? '✅ Delivered' : '🥐 Pending' }}
+            <p
+              v-if="recentEntries.length === 0"
+              class="text-center py-8 text-muted"
+            >
+              No history yet. Start tracking late arrivals!
+            </p>
+
+            <div
+              v-else
+              class="space-y-2"
+            >
+              <div
+                v-for="entry in recentEntries"
+                :key="entry.id"
+                class="flex items-center justify-between gap-3 p-3 rounded-lg bg-elevated/50 border border-default"
+              >
+                <div>
+                  <div class="font-semibold text-highlighted">
+                    {{ entry.name }}
+                  </div>
+                  <div class="text-sm text-muted">
+                    {{ formatDate(entry.date) }}
+                  </div>
+                  <div
+                    v-if="entry.reason"
+                    class="text-xs text-dimmed italic"
+                  >
+                    {{ entry.reason }}
+                  </div>
+                </div>
+                <div class="text-right shrink-0">
+                  <UBadge
+                    :color="entry.delivered ? 'success' : 'warning'"
+                    variant="subtle"
+                    :icon="entry.delivered ? 'i-lucide-check' : 'i-lucide-croissant'"
+                  >
+                    {{ entry.delivered ? 'Delivered' : 'Pending' }}
+                  </UBadge>
+                  <div
+                    v-if="entry.deliveredDate"
+                    class="text-xs text-muted mt-1"
+                  >
+                    Delivered: {{ formatDate(entry.deliveredDate) }}
+                  </div>
+                </div>
               </div>
-              <div v-if="entry.deliveredDate" class="text-xs text-green-500">
-                Delivered: {{ formatDate(entry.deliveredDate) }}
-              </div>
             </div>
-          </div>
+          </SectionCard>
         </div>
-      </UCard>
       </template>
     </div>
   </div>
 </template>
-
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 
@@ -348,7 +382,7 @@ watch(activeTeamId, teamId => fetchEntries(teamId))
 
 // SEO
 useHead({
-  title: 'Croissant Tracker - Track Late Arrivals',
+  title: 'Croissant Tracker — Track Late Arrivals',
   meta: [
     { name: 'description', content: 'Fun app to track who owes croissants for being late to meetings or work!' }
   ]

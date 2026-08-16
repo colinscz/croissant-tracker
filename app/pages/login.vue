@@ -1,40 +1,57 @@
 <template>
   <div class="p-4">
     <div class="max-w-md mx-auto mt-16">
-      <div class="text-center mb-8">
-        <div class="text-6xl animate-float mb-4">🥐</div>
-        <h1 class="text-3xl font-bold text-amber-800">Croissant Tracker</h1>
-        <p class="text-amber-700 mt-2">Sign in to log late arrivals and settle your croissant debts.</p>
-      </div>
+      <PageHero
+        title="Croissant Tracker"
+        subtitle="Sign in to log late arrivals and settle your croissant debts."
+      />
 
-      <UCard class="croissant-shadow">
-        <template #header>
-          <div class="flex items-center gap-2">
-            <div class="text-2xl">✉️</div>
-            <h2 class="text-xl font-semibold text-amber-800">Sign in with a magic link</h2>
-          </div>
-        </template>
-
-        <div v-if="sent" class="text-center py-6 space-y-2">
-          <div class="text-4xl">📬</div>
-          <p class="font-semibold text-amber-800">Check your inbox!</p>
-          <p class="text-sm text-amber-600">
-            We sent a magic link to <span class="font-medium">{{ email }}</span>.
+      <SectionCard
+        title="Sign in with a magic link"
+        icon="i-lucide-mail"
+      >
+        <div
+          v-if="sent"
+          class="text-center py-6 space-y-2"
+        >
+          <UIcon
+            name="i-lucide-mail-check"
+            class="size-10 text-success"
+            aria-hidden="true"
+          />
+          <p class="font-semibold text-highlighted">
+            Check your inbox!
+          </p>
+          <p class="text-sm text-muted">
+            We sent a magic link to <span class="font-medium text-highlighted">{{ email }}</span>.
             Click it to sign in — you can close this tab.
           </p>
-          <UButton variant="link" color="primary" @click="reset">
+          <UButton
+            variant="link"
+            color="primary"
+            @click="reset"
+          >
             Use a different email
           </UButton>
         </div>
 
-        <UForm v-else :state="state" class="space-y-4" @submit="sendMagicLink">
-          <UFormField label="Email" required>
+        <UForm
+          v-else
+          :state="state"
+          class="space-y-4"
+          @submit="sendMagicLink"
+        >
+          <UFormField
+            label="Email"
+            required
+          >
             <UInput
               v-model="state.email"
               type="email"
               placeholder="you@example.com"
               autocomplete="email"
               icon="i-lucide-mail"
+              class="w-full"
             />
           </UFormField>
 
@@ -48,21 +65,18 @@
 
           <UButton
             type="submit"
-            class="w-full croissant-gradient text-white font-semibold"
             size="lg"
+            icon="i-lucide-wand-sparkles"
             :loading="loading"
+            class="w-full justify-center croissant-gradient text-white font-semibold"
           >
-            <div class="flex items-center gap-2">
-              <span>Send magic link</span>
-              <div class="text-lg">🪄</div>
-            </div>
+            Send magic link
           </UButton>
         </UForm>
-      </UCard>
+      </SectionCard>
     </div>
   </div>
 </template>
-
 <script setup>
 import { ref, reactive, watch } from 'vue'
 

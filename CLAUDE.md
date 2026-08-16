@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## Project
 
-**Croissant Tracker** 🥐 — a lighthearted single-page web app for tracking who
+**Croissant Tracker** — a lighthearted single-page web app for tracking who
 owes croissants for being late (a European office tradition). Users log late
 arrivals, see who owes pastries, mark debts as delivered, and view a
 leaderboard. Entries are persisted in a **Supabase** Postgres database via the
@@ -56,12 +56,18 @@ pnpm typecheck      # nuxt typecheck (vue-tsc)
 ```
 app/
   app.vue              # root: <UApp> + layout + page
-  app.config.ts        # app title/meta + Nuxt UI theme (primary: amber, neutral: zinc)
+  app.config.ts        # Nuxt UI theme (primary: amber, neutral: zinc) + glass UCard styling
   assets/css/main.css  # Tailwind + Nuxt UI imports, custom croissant theme vars/classes
   layouts/default.vue  # UContainer wrapper, nav menu links, <AppHeader> + slot
   components/
     AppHeader.vue      # fixed floating nav menu (UNavigationMenu) + ColorModeButton
+    AppFooter.vue      # tagline footer
     ColorModeButton.vue# dark/light toggle with View Transitions animation
+    CroissantBackground.vue # fixed animated backdrop: gradient, blooms, drifting croissants
+    PageHero.vue       # icon badge + h1 + subtitle, used by every page
+    SectionCard.vue    # UCard with an icon+title header (replaces the old emoji headers)
+    StatCard.vue       # icon + value + label tile (index stats grid)
+    EmptyState.vue     # empty/loading block; `loading` swaps the icon for a spinner
   pages/
     index.vue          # main tracker UI (the core file); persistence via composable
     teams.vue          # team management: create, add/remove members by email, delete
@@ -118,10 +124,25 @@ nuxt.config.ts
   current user with `useSupabaseUser()`; sign out via `supabase.auth.signOut()`
   (see `AppHeader.vue`).
 - **Components**: Use Nuxt UI `U*` components (`UCard`, `UButton`, `UForm`,
-  `UInput`, etc.). They auto-import — no manual imports needed.
+  `UInput`, etc.). They auto-import — no manual imports needed. The app's own
+  shared components (`PageHero`, `SectionCard`, `StatCard`, `EmptyState`) also
+  auto-import; reach for them before re-creating a hero, a titled card, a stat
+  tile, or an empty/loading block.
+- **No emoji.** Every icon is `i-lucide-*` rendered through `UIcon` or a
+  component's `icon` prop, marked `aria-hidden="true"` when decorative. Do not
+  reintroduce emoji in markup, labels, headings, or status strings. Verify a
+  Lucide name exists before using it — a bad name renders as an empty box, not
+  an error:
+  `node -e 'console.log("croissant" in require("./node_modules/@iconify-json/lucide/icons.json").icons)'`
 - **Styling**: Tailwind utility classes inline. Custom theme tokens and helper
   classes (`croissant-gradient`, `croissant-shadow`, `animate-float`) are in
-  `app/assets/css/main.css`. Theme colors set in `app.config.ts`.
+  `app/assets/css/main.css`; every custom token has a `.dark` counterpart there.
+  Theme colors and the global glass `UCard` styling are set in `app.config.ts`.
+- **Background**: `CroissantBackground.vue` is a `position: fixed; z-index: -1`
+  layer mounted once in `layouts/default.vue`. It animates `transform`/`opacity`
+  only and is disabled under `prefers-reduced-motion`. Do not give it or its
+  children a `view-transition-name` — that would break the root-level colour-mode
+  wipe in `ColorModeButton.vue`.
 - **Icons**: `i-lucide-*` and `i-simple-icons-*` via the installed iconify sets.
 - **Dark mode**: Handled by `useColorMode()` (Nuxt UI / @vueuse).
 
