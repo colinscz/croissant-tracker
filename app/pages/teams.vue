@@ -221,6 +221,7 @@ const {
   teams,
   members,
   activeTeamId,
+  currentProfileId,
   pending,
   error,
   fetchTeams,
@@ -230,9 +231,6 @@ const {
   addMemberByEmail,
   removeMember,
 } = useTeams()
-
-const user = useSupabaseUser()
-const currentProfileId = computed(() => user.value?.id ?? null)
 
 // Which team's member list is expanded below. Defaults to the active team.
 const selectedTeamId = ref<string | null>(null)

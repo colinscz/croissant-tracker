@@ -76,6 +76,13 @@ export const useTeams = () => {
 
   const activeTeam = computed(() => teams.value.find(t => t.id === activeTeamId.value) ?? null)
 
+  // useSupabaseUser() holds the JWT claims (@nuxtjs/supabase v2 populates it from
+  // auth.getClaims()), not a User row — so the auth user id is `sub`, not `id`.
+  // JwtPayload has an `[key: string]: any` index signature, which means reading
+  // the wrong field type-checks fine and only shows up as a literal "undefined"
+  // in a query. Typed here as string | null so that can't happen again.
+  const currentProfileId = computed<string | null>(() => user.value?.sub ?? null)
+
   // Keep the selection pointing at a team the user still belongs to.
   const syncActiveTeam = () => {
     if (!teams.value.some(t => t.id === activeTeamId.value)) {
@@ -84,7 +91,9 @@ export const useTeams = () => {
   }
 
   const fetchTeams = async () => {
-    if (!user.value) return
+    // Guard on the id rather than the user object: an absent id must never reach
+    // a query, where it would be interpolated as the string "undefined".
+    if (!currentProfileId.value) return
 
     pending.value = true
     error.value = null
@@ -92,7 +101,7 @@ export const useTeams = () => {
     const { data, error: fetchError } = await supabase
       .from('teams')
       .select('*, team_members!inner(role)')
-      .eq('team_members.profile_id', user.value.id)
+      .eq('team_members.profile_id', currentProfileId.value)
       .order('created_at', { ascending: true })
 
     if (fetchError) {
@@ -109,7 +118,7 @@ export const useTeams = () => {
   const createTeam = async (name: string) => {
     error.value = null
 
-    if (!user.value) {
+    if (!currentProfileId.value) {
       error.value = 'You need to be signed in to create a team.'
       return null
     }
@@ -208,7 +217,7 @@ export const useTeams = () => {
     }
 
     // Removing yourself means you lose access to the team entirely.
-    if (profileId === user.value?.id) {
+    if (profileId === currentProfileId.value) {
       teams.value = teams.value.filter(t => t.id !== teamId)
       const { [teamId]: _removed, ...rest } = members.value
       members.value = rest
@@ -225,6 +234,7 @@ export const useTeams = () => {
     members,
     activeTeamId,
     activeTeam,
+    currentProfileId,
     pending,
     error,
     fetchTeams,
