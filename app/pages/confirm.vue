@@ -1,8 +1,12 @@
 <template>
   <div class="p-4">
     <div class="max-w-md mx-auto mt-24 text-center">
-      <div class="text-6xl animate-float mb-4">🥐</div>
       <template v-if="error">
+        <UIcon
+          name="i-lucide-croissant"
+          class="size-12 text-primary mb-4"
+          aria-hidden="true"
+        />
         <UAlert
           color="error"
           variant="subtle"
@@ -11,11 +15,20 @@
           :description="error"
           class="text-left"
         />
-        <UButton to="/login" class="mt-6" color="primary">Back to sign in</UButton>
+        <UButton
+          to="/login"
+          color="primary"
+          icon="i-lucide-arrow-left"
+          class="mt-6"
+        >
+          Back to sign in
+        </UButton>
       </template>
-      <template v-else>
-        <p class="text-lg text-amber-700">Signing you in…</p>
-      </template>
+      <EmptyState
+        v-else
+        loading
+        description="Signing you in…"
+      />
     </div>
   </div>
 </template>

@@ -19,8 +19,9 @@ const navLinks: NavigationMenuItem[] = [{
 </script>
 
 <template>
-  <div>
-    <UContainer class="sm:border-x border-default pt-10">
+  <div class="relative min-h-screen">
+    <CroissantBackground />
+    <UContainer class="sm:border-x border-default pt-10 min-h-screen">
       <AppHeader :links="navLinks" />
       <slot />
       <AppFooter />

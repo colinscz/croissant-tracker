@@ -12,6 +12,18 @@ export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   css: [// CSS file in the project
   '~/assets/css/main.css',],
+  icon: {
+    // The UI is icon-driven and ships as a static site with no server, so every
+    // icon has to be inside the client bundle. Without this, @nuxt/icon falls
+    // back to fetching from api.iconify.design at runtime and icons render as
+    // blank boxes for anyone behind a proxy or offline.
+    provider: 'none',
+    fallbackToApi: false,
+    clientBundle: {
+      scan: true,
+      sizeLimitKb: 512
+    }
+  },
     future: {
     compatibilityVersion: 4
   },

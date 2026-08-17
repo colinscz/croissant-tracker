@@ -1,43 +1,99 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
-@source "../../../content/**/*";
-
 @theme static {
   --font-sans: 'Public Sans', sans-serif;
   --font-serif: 'Instrument Serif', serif;
 }
 
-
+/*
+ * Croissant theme tokens. Every value has a dark-mode counterpart below so the
+ * animated background and the custom helper classes follow the color mode.
+ */
 :root {
-  --croissant-gold: #D4A574;
-  --croissant-brown: #8B4513;
-  --croissant-cream: #FFF8DC;
-  --croissant-orange: #FF8C42;
+  /* Gradient stops for `.croissant-gradient`. Deliberately deeper than the
+     background tints: this gradient always carries white text/icons, and the
+     old #d4a574 → #ff8c42 pair only reached ~1.9:1 against white. These two
+     both clear 5:1. */
+  --croissant-gradient-from: #b45309;
+  --croissant-gradient-to: #c2410c;
+
+  /* Page ground. Also painted on html/body so there is no white flash before
+     hydration — the app is `ssr: false`, so CroissantBackground.vue only mounts
+     once the client bundle runs. */
+  --croissant-bg-base: #fffaf2;
+  --croissant-bg-tint-a: rgba(255, 140, 66, 0.16);
+  --croissant-bg-tint-b: rgba(212, 165, 116, 0.22);
+
+  /* Drifting croissants in the background layer. */
+  --croissant-ink: #8b4513;
+  --croissant-ink-opacity: 0.16;
+
+  --croissant-shadow-color: rgba(212, 165, 116, 0.3);
 }
 
+.dark {
+  --croissant-bg-base: #14100c;
+  --croissant-bg-tint-a: rgba(255, 140, 66, 0.14);
+  --croissant-bg-tint-b: rgba(212, 165, 116, 0.1);
+
+  --croissant-ink: #f0c9a0;
+  --croissant-ink-opacity: 0.13;
+
+  --croissant-shadow-color: rgba(0, 0, 0, 0.45);
+}
+
+html,
 body {
-  /* background: linear-gradient(135deg, #FFF8DC 0%, #F5E6D3 100%); */
+  background-color: var(--croissant-bg-base);
   min-height: 100vh;
 }
 
 .croissant-gradient {
-  background: linear-gradient(135deg, var(--croissant-gold) 0%, var(--croissant-orange) 100%);
+  background: linear-gradient(135deg, var(--croissant-gradient-from) 0%, var(--croissant-gradient-to) 100%);
 }
 
 .croissant-shadow {
-  box-shadow: 0 4px 20px rgba(212, 165, 116, 0.3);
-}
-
-.animate-bounce-slow {
-  animation: bounce 2s infinite;
+  box-shadow: 0 4px 20px var(--croissant-shadow-color);
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0px); }
+  0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10px); }
 }
 
 .animate-float {
   animation: float 3s ease-in-out infinite;
 }
+
+/*
+ * Background layer animations. Only `transform` and `opacity` are animated so
+ * the whole backdrop stays on the compositor.
+ */
+@keyframes croissant-drift {
+  0% {
+    transform: translate3d(0, 12vh, 0) rotate(var(--drift-rot-from)) scale(0.92);
+    opacity: 0;
+  }
+  12%, 88% {
+    opacity: var(--drift-opacity);
+  }
+  100% {
+    transform: translate3d(var(--drift-x), -118vh, 0) rotate(var(--drift-rot-to)) scale(1.06);
+    opacity: 0;
+  }
+}
+
+@keyframes croissant-bloom {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(2%, -3%, 0) scale(1.12); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float {
+    animation: none;
+  }
+}
+
+/* CroissantBackground.vue carries its own prefers-reduced-motion block: its
+   rules are scoped (higher specificity), so they cannot be overridden here. */
