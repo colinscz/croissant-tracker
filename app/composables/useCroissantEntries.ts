@@ -6,6 +6,8 @@ import type { Database } from '~/types/database'
 export interface CroissantEntry {
   id: number
   teamId: string
+  /** Profile that owes the croissants — the one person who can't resolve it. */
+  debtorProfileId: string
   name: string
   date: string
   reason: string
@@ -21,6 +23,7 @@ const TABLE = 'croissant_entries'
 const fromRow = (row: EntryRow): CroissantEntry => ({
   id: row.id,
   teamId: row.team_id,
+  debtorProfileId: row.debtor_profile_id,
   name: row.name,
   date: row.date,
   reason: row.reason ?? '',
@@ -39,10 +42,13 @@ const fromRow = (row: EntryRow): CroissantEntry => ({
  * Entries belong to a team (migration 0004), so every call is scoped to one:
  * `fetchEntries`/`addEntry` take the team id, and RLS independently rejects any
  * team the signed-in user isn't a member of.
+ *
+ * Every entry names the profile that owes the croissants (migration 0007). The
+ * `prevent_self_delivery` trigger rejects `markAsDelivered` on your own debt, so
+ * that failure arrives here as an ordinary error message.
  */
 export const useCroissantEntries = () => {
-  // Typed via the `supabase.types` path configured in nuxt.config.ts.
-  const supabase = useSupabaseClient()
+  const supabase = useSupabaseClient<Database>()
 
   const entries = useState<CroissantEntry[]>('croissant-entries', () => [])
   const pending = useState<boolean>('croissant-entries-pending', () => false)
@@ -75,13 +81,22 @@ export const useCroissantEntries = () => {
     pending.value = false
   }
 
-  const addEntry = async (input: { teamId: string, name: string, date: string, reason?: string }) => {
+  // `name` is a display snapshot of the debtor's label at logging time; the
+  // profile id is what the self-delivery rule is enforced against.
+  const addEntry = async (input: {
+    teamId: string
+    debtorProfileId: string
+    name: string
+    date: string
+    reason?: string
+  }) => {
     error.value = null
 
     const { data, error: insertError } = await supabase
       .from(TABLE)
       .insert({
         team_id: input.teamId,
+        debtor_profile_id: input.debtorProfileId,
         name: input.name.trim(),
         date: input.date,
         reason: input.reason?.trim() ?? '',
