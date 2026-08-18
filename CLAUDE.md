@@ -16,6 +16,11 @@ existing profiles by email, remove members, delete a team), and only members of 
 team can read or write that team's entries — enforced by row-level security, not
 by the UI.
 
+Each entry names the **team member who owes the croissants**
+(`debtor_profile_id`), and that person can't mark their own debt delivered —
+somebody else has to confirm it. Enforced by the `prevent_self_delivery` trigger
+(migration 0007), not just by hiding the button.
+
 Access requires signing in with a **Supabase Auth magic link** (passwordless
 email): the module's redirect middleware sends unauthenticated visitors to
 `/login`, and the emailed link returns them through `/confirm`. Only `/about`
@@ -83,7 +88,8 @@ server/                # tsconfig only; no server routes (static app)
 supabase/migrations/   # SQL: croissant_entries (0001), authenticated-only RLS (0002),
                        #      teams + membership + RPCs (0003), team-scoped entries (0004),
                        #      profiles.email + auto-create trigger (0005),
-                       #      backfill + prune email-less profiles (0006, destructive)
+                       #      backfill + prune email-less profiles (0006, destructive),
+                       #      debtor_profile_id + no-self-delivery trigger (0007, destructive)
 nuxt.config.ts
 .github/workflows/     # CI (lint commented out, typecheck runs) + GitHub Pages deploy
 ```
@@ -97,6 +103,16 @@ nuxt.config.ts
   by the Supabase `croissant_entries` table. Entries are fetched `onMounted`.
   DB columns are snake_case; the composable maps them to the camelCase shape the
   UI uses (`deliveredDate`, `createdAt`). There is no global store/Pinia.
+- **Who owes it**: `addEntry` takes a `debtorProfileId` picked from the active
+  team's members (`/` loads them via `fetchMembers`), plus `name` — a *display
+  snapshot* of that member's label at logging time, so history keeps reading
+  well if someone later renames their profile. Group by `debtorProfileId`, not
+  by `name`. The `prevent_self_delivery` trigger (0007) rejects any change to
+  `delivered` — in either direction, and on insert — when `auth.uid()` is the
+  debtor; it's a trigger rather than an RLS predicate so the debtor can still fix
+  their own entry's date or reason, and so the refusal arrives as a readable
+  `error.message` instead of a silent zero-row update. `index.vue` mirrors this
+  by replacing the Delivered button with a note on your own debts.
 - **Teams**: `useTeams` (`app/composables/useTeams.ts`) follows the same shape and
   owns `activeTeamId` (shared `useState`), which both `/` and `/teams` read.
   `fetchEntries(teamId)` / `addEntry({ teamId, ... })` are always team-scoped.
