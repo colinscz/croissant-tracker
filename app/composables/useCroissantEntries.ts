@@ -1,8 +1,7 @@
-import type { Database } from '~/types/database'
+import type { EntryRow } from '~~/server/db/schema'
 
-// Shape used throughout the UI. Mirrors the previous localStorage records so
-// the page components didn't need to change, but the `id` is now the bigint
-// primary key assigned by Postgres.
+// Shape used throughout the UI. `id` is the bigint primary key assigned by
+// Postgres.
 export interface CroissantEntry {
   id: number
   teamId: string
@@ -16,40 +15,24 @@ export interface CroissantEntry {
   createdAt: string
 }
 
-type EntryRow = Database['public']['Tables']['croissant_entries']['Row']
-
-const TABLE = 'croissant_entries'
-
-const fromRow = (row: EntryRow): CroissantEntry => ({
-  id: row.id,
-  teamId: row.team_id,
-  debtorProfileId: row.debtor_profile_id,
-  name: row.name,
-  date: row.date,
-  reason: row.reason ?? '',
-  delivered: row.delivered,
-  deliveredDate: row.delivered_date,
-  createdAt: row.created_at,
-})
+// The API returns Drizzle rows, already camelCase; JSON leaves them as-is.
+const fromRow = (row: EntryRow): CroissantEntry => ({ ...row, reason: row.reason ?? '' })
 
 /**
- * Croissant entries backed by Supabase.
+ * Croissant entries, via the app's own API (server/api/teams/[id]/entries,
+ * server/api/entries/[id]).
  *
  * Provides a reactive `entries` list plus CRUD helpers. State is shared across
- * components via `useState`, and changes are persisted to the
- * `croissant_entries` table.
+ * components via `useState`; errors are surfaced as strings, never thrown.
  *
- * Entries belong to a team (migration 0004), so every call is scoped to one:
- * `fetchEntries`/`addEntry` take the team id, and RLS independently rejects any
- * team the signed-in user isn't a member of.
+ * Entries belong to a team, so every call is scoped to one: RLS in Postgres
+ * independently rejects any team the signed-in user isn't a member of.
  *
- * Every entry names the profile that owes the croissants (migration 0007). The
- * `prevent_self_delivery` trigger rejects `markAsDelivered` on your own debt, so
- * that failure arrives here as an ordinary error message.
+ * Every entry names the profile that owes the croissants. The
+ * `prevent_self_delivery` trigger rejects `markAsDelivered` on your own debt,
+ * and that failure arrives here as an ordinary error message.
  */
 export const useCroissantEntries = () => {
-  const supabase = useSupabaseClient<Database>()
-
   const entries = useState<CroissantEntry[]>('croissant-entries', () => [])
   const pending = useState<boolean>('croissant-entries-pending', () => false)
   const error = useState<string | null>('croissant-entries-error', () => null)
@@ -65,20 +48,16 @@ export const useCroissantEntries = () => {
 
     pending.value = true
 
-    const { data, error: fetchError } = await supabase
-      .from(TABLE)
-      .select('*')
-      .eq('team_id', teamId)
-      .order('date', { ascending: false })
-
-    if (fetchError) {
-      error.value = fetchError.message
-      pending.value = false
-      return
+    try {
+      const rows = await $fetch<EntryRow[]>(`/api/teams/${teamId}/entries`)
+      entries.value = rows.map(fromRow)
     }
-
-    entries.value = (data ?? []).map(fromRow)
-    pending.value = false
+    catch (fetchError) {
+      error.value = apiErrorMessage(fetchError)
+    }
+    finally {
+      pending.value = false
+    }
   }
 
   // `name` is a display snapshot of the debtor's label at logging time; the
@@ -92,49 +71,35 @@ export const useCroissantEntries = () => {
   }) => {
     error.value = null
 
-    const { data, error: insertError } = await supabase
-      .from(TABLE)
-      .insert({
-        team_id: input.teamId,
-        debtor_profile_id: input.debtorProfileId,
-        name: input.name.trim(),
-        date: input.date,
-        reason: input.reason?.trim() ?? '',
-        delivered: false,
-        delivered_date: null,
+    try {
+      const row = await $fetch<EntryRow>(`/api/teams/${input.teamId}/entries`, {
+        method: 'POST',
+        body: {
+          debtorProfileId: input.debtorProfileId,
+          name: input.name.trim(),
+          date: input.date,
+          reason: input.reason?.trim() ?? '',
+        },
       })
-      .select()
-      .single()
-
-    if (insertError) {
-      error.value = insertError.message
-      return
+      entries.value = [fromRow(row), ...entries.value]
     }
-
-    if (data) {
-      entries.value = [fromRow(data), ...entries.value]
+    catch (insertError) {
+      error.value = apiErrorMessage(insertError)
     }
   }
 
   const markAsDelivered = async (id: number) => {
     error.value = null
-    const deliveredDate = new Date().toISOString().split('T')[0]
-
-    const { data, error: updateError } = await supabase
-      .from(TABLE)
-      .update({ delivered: true, delivered_date: deliveredDate })
-      .eq('id', id)
-      .select()
-      .single()
-
-    if (updateError) {
-      error.value = updateError.message
-      return
-    }
-
-    if (data) {
-      const updated = fromRow(data)
+    try {
+      const row = await $fetch<EntryRow>(`/api/entries/${id}`, {
+        method: 'PATCH',
+        body: { delivered: true },
+      })
+      const updated = fromRow(row)
       entries.value = entries.value.map(e => (e.id === id ? updated : e))
+    }
+    catch (updateError) {
+      error.value = apiErrorMessage(updateError)
     }
   }
 

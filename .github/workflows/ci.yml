@@ -19,7 +19,7 @@ jobs:
           version: 11.5.2
       - uses: actions/setup-node@v6
         with:
-          node-version: lts/*
+          node-version: 24
           cache: pnpm
 
       - name: Install
@@ -37,7 +37,7 @@ jobs:
           version: 11.5.2
       - uses: actions/setup-node@v6
         with:
-          node-version: lts/*
+          node-version: 24
           cache: pnpm
 
       - name: Install
@@ -45,3 +45,34 @@ jobs:
 
       - name: Typecheck
         run: pnpm run typecheck
+
+  # Builds both images to catch Dockerfile breakage. Nothing is pushed anywhere —
+  # images are built on the server (see docs/self-hosting-hetzner.md).
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build migrate image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: migrate
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build app image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: app
+          push: false
+          cache-from: type=gha
+
+      - name: Validate compose files
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml config --quiet

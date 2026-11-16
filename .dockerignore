@@ -1,0 +1,14 @@
+# Keep the build context small and secret-free.
+node_modules
+.nuxt
+.output
+dist
+.git
+.github
+.env
+.env.*
+!.env.example
+docker/
+docs/
+*.md
+!README.md

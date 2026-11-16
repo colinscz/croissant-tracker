@@ -18,64 +18,85 @@ The tradition of bringing pastries when you're late is common in many European w
 
 While croissants are the classic choice, the tradition can include any pastries, donuts, or treats that bring joy to the team. It's not about punishment—it's about building camaraderie and encouraging punctuality in a fun way!
 
-## 🗄️ Data Storage (Supabase)
+## 🏗️ Architecture
 
-Croissant entries are stored in a [Supabase](https://supabase.com/) Postgres
-database via the official [`@nuxtjs/supabase`](https://supabase.nuxtjs.org/)
-module, so the tracker is shared across everyone who opens the app.
+Everything is self-hosted with Docker. There are no third-party backend services
+apart from an SMTP provider for sign-in emails.
 
-### Setup
+| Piece | What it does |
+|---|---|
+| **Nuxt 4** app (Nitro `node-server`) | Serves the client-rendered UI and a small JSON API under `/api` |
+| **PostgreSQL 17** | Stores teams, members, profiles and croissant entries. Row-level security enforces who can see and change what |
+| **[Hanko](https://www.hanko.io/)** (self-hosted) | Passwordless sign-in: a one-time code by email, plus optional passkeys. Integrated via [`@nuxtjs/hanko`](https://github.com/nuxt-modules/hanko) |
+| **Caddy** | HTTPS with automatic Let's Encrypt certificates (production only) |
 
-1. Create a Supabase project.
-2. Run the SQL migrations in [`supabase/migrations/`](supabase/migrations) in
-   order (e.g. paste each into the SQL Editor):
-   [`0001_croissant_entries.sql`](supabase/migrations/0001_croissant_entries.sql)
-   creates the `croissant_entries` table,
-   [`0002_require_authenticated.sql`](supabase/migrations/0002_require_authenticated.sql)
-   restricts it to signed-in users (see auth setup below),
-   [`0003_teams.sql`](supabase/migrations/0003_teams.sql) adds teams and team
-   membership, and
-   [`0004_team_scoped_entries.sql`](supabase/migrations/0004_team_scoped_entries.sql)
-   ties each entry to a team, and
-   [`0005_profiles_email.sql`](supabase/migrations/0005_profiles_email.sql) adds
-   an `email` column to `public.profiles` and creates profile rows automatically.
-   [`0006_prune_profiles_without_email.sql`](supabase/migrations/0006_prune_profiles_without_email.sql)
-   is optional housekeeping: it re-runs the backfill and deletes profiles that
-   still have no usable email.
+Database access uses [Drizzle ORM](https://orm.drizzle.team/) with the
+[`postgres`](https://github.com/porsager/postgres) driver. Migrations live in
+[`server/db/migrations`](server/db/migrations): `0000_init.sql` is generated
+from [`server/db/schema.ts`](server/db/schema.ts), and
+[`0001_rls_functions.sql`](server/db/migrations/0001_rls_functions.sql) holds
+the hand-written RLS policies, functions and triggers.
 
-   > ⚠️ `0004` **deletes all existing croissant entries.** They predate teams, so
-   > there's no way to tell which team each one belonged to.
+### How a request is authorised
 
-   These migrations expect a `public.profiles` table keyed on the `auth.users` id
-   (the standard Supabase profile table). After `0005`, a profile is created
-   automatically the first time someone requests a magic link, and existing users
-   are backfilled — so there's nothing to do by hand.
+1. The browser signs in with Hanko, and `hanko-elements` stores the session JWT
+   as the `hanko` cookie.
+2. For each `/api` call, the Nitro server verifies that JWT against Hanko's
+   public keys (`server/utils/auth.ts`).
+3. It opens a transaction **as the `croissant_app` role**, which is subject to
+   RLS, and runs `set_config('app.user_id', <hanko user id>, true)`
+   (`server/utils/db.ts`).
+4. Every policy and trigger reads `app.current_user_id()`. A query from a user
+   who isn't on a team simply returns nothing.
 
-   > ⚠️ `0006` **deletes data**: removing a profile cascades to its team
-   > memberships, and any team whose owners are *all* being pruned is deleted
-   > along with its croissant entries. Its header has two dry-run queries — run
-   > them first and check what comes back. Skip this migration entirely if you
-   > have no email-less profiles to clean up.
+## 🚀 Running It
 
-   > ⚠️ Read the header of `0005` before applying it. It installs a trigger on
-   > `auth.users`, and a trigger that fails aborts the insert that fired it — so
-   > if your `profiles` table has a `NOT NULL` column without a default, sign-in
-   > itself breaks. The header has a one-line query to check. It also drops the
-   > quickstart "public profiles are viewable by everyone" policy, since profiles
-   > now hold email addresses; verify the policy name in your project matches.
-3. Copy `.env.example` to `.env` and fill in your project's API URL and
-   **anon** public key (Project Settings → API):
+### Production (Hetzner or any Docker host)
 
-   ```bash
-   cp .env.example .env
-   ```
+See **[docs/self-hosting-hetzner.md](docs/self-hosting-hetzner.md)**. In short:
 
-   ```dotenv
-   SUPABASE_URL=https://your-project-ref.supabase.co
-   SUPABASE_KEY=your-anon-public-key
-   ```
+```bash
+cp .env.example .env   # set domains, passwords, SMTP
+docker compose up -d --build
+```
 
-4. `pnpm install && pnpm dev`.
+### Local development
+
+Requirements: Docker, Node 24 and pnpm.
+
+```bash
+cp .env.example .env   # the defaults work for local development
+```
+
+Run the backing services: Postgres, Hanko, migrations, and Mailpit to catch
+sign-in emails at <http://localhost:8025>:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres hanko app-migrate mailpit
+```
+
+Then run Nuxt with hot reload on the host:
+
+```bash
+pnpm install && pnpm dev
+```
+
+`pnpm dev` reads `NUXT_DATABASE_URL` and `NUXT_PUBLIC_HANKO_API_URL` from `.env`.
+To run the full stack in containers instead, including the app on
+<http://localhost:3000>:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+### Database changes
+
+1. Edit `server/db/schema.ts`.
+2. Run `pnpm db:generate` to write a new SQL migration. For policies, functions
+   or triggers, run `pnpm drizzle-kit generate --custom --name <name>` and write
+   the SQL by hand.
+3. Run `pnpm db:migrate` to apply it locally (uses `DATABASE_OWNER_URL`). In
+   Docker, the `app-migrate` service applies it on the next `up`.
 
 ## 👥 Teams
 
@@ -83,10 +104,9 @@ Croissant debts belong to a **team**, not to everyone with an account. Head to
 **/teams** to:
 
 - **Create a team** — whoever creates it becomes its owner.
-- **Add members by email** — enter the email address on their Croissant Tracker
-  account. A profile is created as soon as someone requests a magic link, so they
-  need to have hit the sign-in page once; they don't have to have clicked the link
-  yet, which makes this a rough-and-ready invite.
+- **Add members by email**: enter the email address on their Croissant Tracker
+  account. Their profile is created the first time they sign in, so they need to
+  have signed in once before you can add them.
 - **Remove members / delete a team** — owners can remove anyone and delete the
   team (which deletes its entries too). Anyone can leave a team themselves, and a
   team always keeps at least one owner.
@@ -95,32 +115,23 @@ You can be on as many teams as you like; the tracker page has a selector to
 choose which team's debts you're looking at.
 
 This is enforced in the database, not just the UI: row-level security in
-[`0004_team_scoped_entries.sql`](supabase/migrations/0004_team_scoped_entries.sql)
-means a signed-in user simply cannot read or write entries for a team they're not
-a member of. Email lookup happens in a `security definer` Postgres function
-rather than in the browser, and `profiles` rows are readable only to yourself and
-people you share a team with — so the app never exposes a queryable directory of
+[`0001_rls_functions.sql`](server/db/migrations/0001_rls_functions.sql) means a
+signed-in user simply cannot read or write entries for a team they're not a
+member of. Email lookup happens in a `security definer` Postgres function rather
+than in the browser, and `profiles` rows are readable only to yourself and
+people you share a team with. So the app never exposes a queryable directory of
 everyone's email address.
 
-## 🔐 Signing In (Magic Link)
+## 🔐 Signing In
 
-The app is gated behind **Supabase Auth** using passwordless **magic links**.
-Visitors are redirected to `/login`, enter their email, and receive a link that
-signs them in via `/confirm`. Only the `/about` page is public.
+Sign-in is handled by a self-hosted **Hanko** instance. Visitors are redirected
+to `/login`, enter their email and type the one-time code Hanko emails them. New
+emails are registered on the spot. After that they can add a **passkey** and
+skip the email step. Only the `/about` page is public.
 
-To enable this in your Supabase project:
+Your profile is created the first time you use the app after signing in, which
+is when teammates can start adding you to teams by email.
 
-1. **Authentication → Providers → Email**: make sure email sign-in is enabled.
-   (Magic links work with just an email — no password needed.)
-2. **Authentication → URL Configuration**: set the **Site URL** and add the
-   app's confirm URL to **Redirect URLs**, for both local and production, e.g.:
-
-   - `http://localhost:3000/confirm`
-   - `https://<your-username>.github.io/croissant-tracker/confirm`
-
-3. (Optional) Restrict who can sign in by disabling public sign-ups and
-   inviting users under **Authentication → Users**.
-
-> Note: migration `0002_require_authenticated.sql` restricts the
-> `croissant_entries` table to the `authenticated` role, so only signed-in
-> users can read or write entries — the anon key alone is denied by RLS.
+Each entry names the teammate who owes the croissants, and **that person can't
+mark their own debt as delivered**. Somebody else has to confirm it. A Postgres
+trigger (`prevent_self_delivery`) enforces this, not just the UI.

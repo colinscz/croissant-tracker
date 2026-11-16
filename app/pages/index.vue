@@ -312,7 +312,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 
-// Entries are persisted in Supabase (see useCroissantEntries / supabase/migrations).
+// Entries are persisted in PostgreSQL via the app's API (see useCroissantEntries / server/api).
 const { entries, pending, error, fetchEntries, addEntry, markAsDelivered: deliverEntry } = useCroissantEntries()
 
 // Entries belong to a team, so the tracker always shows one team at a time.

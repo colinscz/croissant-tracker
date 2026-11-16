@@ -1,0 +1,16 @@
+# TLS-terminating reverse proxy. Caddy obtains and renews Let's Encrypt
+# certificates for both hosts automatically — DNS A/AAAA records for
+# APP_DOMAIN and AUTH_DOMAIN must point at this server first.
+{
+	email {$ACME_EMAIL}
+}
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:3000
+}
+
+{$AUTH_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy hanko:8000
+}

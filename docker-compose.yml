@@ -1,0 +1,128 @@
+# Croissant Tracker — production stack.
+#
+#   cp .env.example .env   # fill in every value
+#   docker compose up -d --build
+#
+# Services:
+#   postgres       PostgreSQL 17 with two databases: `croissant` (app) and `hanko`
+#   hanko-migrate  one-shot: Hanko's own schema migrations
+#   hanko          Hanko auth API (passcodes + passkeys), public port only
+#   app-migrate    one-shot: this repo's migrations, as the schema owner
+#   app            the Nuxt/Nitro server, connecting as the RLS-bound app role
+#   caddy          HTTPS for APP_DOMAIN → app and AUTH_DOMAIN → hanko
+#
+# Only Caddy publishes ports. Everything else talks over the private network.
+# For local development use docker-compose.dev.yml on top of this file.
+
+name: croissant-tracker
+
+x-hanko-env: &hanko-env
+  DATABASE_URL: postgres://hanko:${HANKO_DB_PASSWORD:?}@postgres:5432/hanko?sslmode=disable
+  SECRETS_KEYS: ${HANKO_SECRET_KEY:?}
+  CORS_ALLOW_ORIGINS: ${APP_URL:?}
+  WEBAUTHN_RELYING_PARTY_ID: ${APP_DOMAIN:?}
+  WEBAUTHN_RELYING_PARTY_ORIGINS: ${APP_URL:?}
+  EMAIL_DELIVERY_FROM_ADDRESS: ${SMTP_FROM_ADDRESS:?}
+  EMAIL_DELIVERY_FROM_NAME: ${SMTP_FROM_NAME:-Croissant Tracker}
+  EMAIL_DELIVERY_SMTP_HOST: ${SMTP_HOST:?}
+  EMAIL_DELIVERY_SMTP_PORT: ${SMTP_PORT:-587}
+  EMAIL_DELIVERY_SMTP_USER: ${SMTP_USER:-}
+  EMAIL_DELIVERY_SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      # Read by docker/postgres/init/01-roles.sh on first start only.
+      CROISSANT_OWNER_PASSWORD: ${CROISSANT_OWNER_PASSWORD:?}
+      CROISSANT_APP_PASSWORD: ${CROISSANT_APP_PASSWORD:?}
+      HANKO_DB_PASSWORD: ${HANKO_DB_PASSWORD:?}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # Checks the last database the init script creates, so dependants wait for it.
+      test: ["CMD-SHELL", "pg_isready -U postgres -d hanko"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    shm_size: 128mb
+
+  hanko-migrate:
+    image: ghcr.io/teamhanko/hanko:${HANKO_VERSION:-v3.1.2}
+    command: ["--config", "/etc/hanko/config.yaml", "migrate", "up"]
+    environment: *hanko-env
+    volumes:
+      - ./docker/hanko/config.yaml:/etc/hanko/config.yaml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  hanko:
+    image: ghcr.io/teamhanko/hanko:${HANKO_VERSION:-v3.1.2}
+    # Public API only. The admin API (8001) is not started — nothing here needs it.
+    command: ["serve", "--config", "/etc/hanko/config.yaml", "public"]
+    environment: *hanko-env
+    volumes:
+      - ./docker/hanko/config.yaml:/etc/hanko/config.yaml:ro
+    depends_on:
+      hanko-migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  app-migrate:
+    build:
+      context: .
+      target: migrate
+    image: croissant-tracker-migrate:latest
+    environment:
+      DATABASE_OWNER_URL: postgres://croissant_owner:${CROISSANT_OWNER_PASSWORD:?}@postgres:5432/croissant
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  app:
+    build:
+      context: .
+      target: app
+    image: croissant-tracker:latest
+    restart: unless-stopped
+    environment:
+      NUXT_DATABASE_URL: postgres://croissant_app:${CROISSANT_APP_PASSWORD:?}@postgres:5432/croissant
+      # Browsers talk to Hanko on its public URL; the server fetches signing keys
+      # over the internal network.
+      NUXT_PUBLIC_HANKO_API_URL: ${HANKO_PUBLIC_URL:?}
+      NUXT_HANKO_INTERNAL_URL: http://hanko:8000
+    depends_on:
+      app-migrate:
+        condition: service_completed_successfully
+      hanko:
+        condition: service_started
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?}
+      AUTH_DOMAIN: ${AUTH_DOMAIN:?}
+      ACME_EMAIL: ${ACME_EMAIL:?}
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - app
+      - hanko
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:

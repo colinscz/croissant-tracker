@@ -191,6 +191,11 @@
 </template>
 
 <script setup lang="ts">
+// The only page that's readable without signing in.
+definePageMeta({
+  hanko: { allow: 'all' },
+})
+
 const steps = [
   {
     number: 1,
@@ -227,8 +232,8 @@ const features = [
   },
   {
     icon: 'i-lucide-database',
-    title: 'Local Storage',
-    description: 'Your data is saved locally in your browser'
+    title: 'Self-hosted',
+    description: 'Your team\'s data lives in your own PostgreSQL database'
   }
 ]
 
@@ -256,10 +261,11 @@ const tips = [
 ]
 
 const builtWith = [
-  'Nuxt 3 - Vue.js framework',
-  'Nuxt UI v3 - Component library',
+  'Nuxt 4 - Vue.js framework',
+  'Nuxt UI v4 - Component library',
   'Tailwind CSS - Styling',
-  'Local Storage - Data persistence'
+  'PostgreSQL + Drizzle ORM - Data persistence',
+  'Hanko - Passkey and passcode sign-in'
 ]
 
 // SEO

@@ -1,0 +1,40 @@
+# Local development overrides: no TLS, no real email.
+#
+#   cp .env.example .env    # the "local development" values work as-is
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#
+#   App:       http://localhost:3000
+#   Hanko:     http://localhost:8000
+#   Mailpit:   http://localhost:8025   ← sign-in passcodes land here
+#   Postgres:  localhost:5432           (for `pnpm dev` / psql)
+#
+# For `pnpm dev` with hot reload, start only the backing services
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres hanko app-migrate mailpit
+# and run the Nuxt dev server on the host (see README).
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  hanko:
+    ports:
+      - "8000:8000"
+    environment:
+      # Cookies over plain http on localhost.
+      SESSION_COOKIE_SECURE: "false"
+    depends_on:
+      mailpit:
+        condition: service_started
+
+  app:
+    ports:
+      - "3000:3000"
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "8025:8025"
+
+  caddy:
+    profiles: ["production"]

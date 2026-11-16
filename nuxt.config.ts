@@ -1,46 +1,63 @@
 export default defineNuxtConfig({
-  // Client-side rendered SPA: the app reads/writes its data from the browser
-  // via Supabase, and the static GitHub Pages build has no Supabase env vars,
-  // so there's nothing to prerender on the server.
+  // Client-rendered SPA served by the Nitro node server. The server exists for
+  // /api/* (the database lives behind it now); pages render in the browser,
+  // which is also where Hanko's web components and session live.
   ssr: false,
   devtools: { enabled: true },
   modules: [
     '@nuxt/ui',
     '@nuxt/eslint',
-    '@nuxtjs/supabase',
+    '@nuxtjs/hanko',
   ],
   compatibilityDate: '2024-11-01',
-  css: [// CSS file in the project
-  '~/assets/css/main.css',],
+  css: ['~/assets/css/main.css'],
   icon: {
-    // The UI is icon-driven and ships as a static site with no server, so every
-    // icon has to be inside the client bundle. Without this, @nuxt/icon falls
-    // back to fetching from api.iconify.design at runtime and icons render as
-    // blank boxes for anyone behind a proxy or offline.
+    // Every icon is inside the client bundle, so the app never fetches icons
+    // from api.iconify.design at runtime (blank boxes behind a proxy/offline).
     provider: 'none',
     fallbackToApi: false,
     clientBundle: {
       scan: true,
-      sizeLimitKb: 512
-    }
-  },
-    future: {
-    compatibilityVersion: 4
-  },
-  supabase: {
-    // Require a logged-in user to reach the tracker. The module installs a
-    // global middleware that redirects unauthenticated visitors to `login`;
-    // the magic-link email sends users back through `callback`.
-    redirect: true,
-    redirectOptions: {
-      login: '/login',
-      callback: '/confirm',
-      // Public pages that don't require authentication.
-      exclude: ['/about'],
-      // Remember where the user was headed so /confirm can send them back.
-      saveRedirectToCookie: true,
+      sizeLimitKb: 512,
     },
-    // Types for the typed Supabase client (useSupabaseClient()).
-    types: '~/types/database.ts',
+  },
+  future: {
+    compatibilityVersion: 4,
+  },
+  runtimeConfig: {
+    // Server-only. Override at runtime with NUXT_DATABASE_URL — a connection
+    // string for the `croissant_app` role, which is subject to RLS.
+    databaseUrl: '',
+    // Where the server fetches Hanko's JWKS from. In Docker this is the internal
+    // service URL (http://hanko:8000); falls back to the public API URL.
+    hankoInternalUrl: '',
+  },
+  hanko: {
+    // Public Hanko API URL the browser talks to. Set at runtime with
+    // NUXT_PUBLIC_HANKO_API_URL.
+    apiURL: '',
+    // Every page requires a signed-in user unless it opts out with
+    // definePageMeta({ hanko: { allow: ... } }) — see about.vue and login.vue.
+    globalMiddleware: true,
+    // The server verifies sessions itself (server/middleware/01.auth.ts), using
+    // the internal Hanko URL and a cached key set.
+    augmentContext: false,
+    redirects: {
+      login: '/login',
+      home: '/',
+      success: '/',
+      followRedirect: true,
+    },
+    components: {
+      enablePasskeys: true,
+      fallbackLanguage: 'en',
+    },
+  },
+  experimental: {
+    // Lets @nuxtjs/hanko read `hanko` page meta at build time (globalMiddleware).
+    scanPageMeta: true,
+  },
+  nitro: {
+    preset: 'node-server',
   },
 })

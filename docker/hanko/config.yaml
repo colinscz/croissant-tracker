@@ -1,0 +1,76 @@
+# Hanko (backend v3) configuration for Croissant Tracker.
+#
+# Reference: https://github.com/teamhanko/hanko/blob/main/backend/config/config.yaml
+#
+# Everything deployment-specific or secret is NOT in this file — it comes from
+# environment variables set in docker-compose.yml, which Hanko applies on top of
+# this file (envconfig; nested keys joined with "_", upper-cased):
+#
+#   DATABASE_URL                       postgres://hanko:…@postgres:5432/hanko?sslmode=disable
+#   SECRETS_KEYS                       comma-separated; first key signs new sessions
+#   CORS_ALLOW_ORIGINS                 the app's origin, e.g. https://croissants.example.com
+#   WEBAUTHN_RELYING_PARTY_ID          the app's host, e.g. croissants.example.com
+#   WEBAUTHN_RELYING_PARTY_ORIGINS     the app's origin
+#   EMAIL_DELIVERY_FROM_ADDRESS / _FROM_NAME
+#   EMAIL_DELIVERY_SMTP_HOST / _PORT / _USER / _PASSWORD
+
+service:
+  name: Croissant Tracker
+
+database:
+  dialect: postgres
+
+# Passwordless: an emailed one-time passcode, plus optional passkeys.
+email:
+  enabled: true
+  optional: false
+  acquire_on_registration: true
+  require_verification: true
+  use_as_login_identifier: true
+  use_for_authentication: true
+  limit: 5
+  passcode_ttl: 300
+password:
+  enabled: false
+passkey:
+  enabled: true
+  optional: true
+  acquire_on_registration: conditional
+  acquire_on_login: conditional
+username:
+  enabled: false
+mfa:
+  enabled: false
+
+email_delivery:
+  enabled: true
+
+account:
+  allow_signup: true
+  allow_deletion: true
+
+session:
+  lifespan: 168h # one week
+  # The app (croissants.example.com) and Hanko (auth.example.com) are different
+  # origins. With this on, Hanko returns the session token in the X-Auth-Token
+  # header and hanko-elements stores it as the `hanko` cookie on the app's own
+  # domain — which is the cookie the Nuxt server verifies on /api requests.
+  enable_auth_token_header: true
+  cookie:
+    secure: true
+    same_site: lax
+
+rate_limiter:
+  enabled: true
+  store: in_memory
+
+server:
+  public:
+    address: ":8000"
+
+webauthn:
+  relying_party:
+    display_name: Croissant Tracker
+
+log:
+  log_health_and_metrics: false

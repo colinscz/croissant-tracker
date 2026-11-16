@@ -4,7 +4,7 @@ node_modules
 .output
 dist
 
-# Local environment files (Supabase keys, etc.)
+# Local environment files (database passwords, Hanko secret, SMTP credentials)
 .env
 .env.*
 !.env.example

@@ -5,13 +5,15 @@ defineProps<{
   links: NavigationMenuItem[]
 }>()
 
-const supabase = useSupabaseClient()
-const user = useSupabaseUser()
+const { user, fetchCurrentUser, signOut } = useCurrentUser()
+const route = useRoute()
 
-const signOut = async () => {
-  await supabase.auth.signOut()
-  await navigateTo('/login')
-}
+// The header lives in the layout and survives navigation, so re-check the
+// session whenever the route changes while we don't know who's signed in —
+// e.g. right after Hanko signs someone in on /login.
+watch(() => route.path, () => {
+  if (!user.value) fetchCurrentUser()
+}, { immediate: true })
 </script>
 
 <template>
@@ -27,7 +29,10 @@ const signOut = async () => {
       }"
     >
       <template #list-trailing>
-        <UTooltip v-if="user" :text="`Sign out ${user.email}`">
+        <UTooltip
+          v-if="user"
+          :text="`Sign out ${user.email ?? ''}`"
+        >
           <UButton
             icon="i-lucide-log-out"
             variant="ghost"

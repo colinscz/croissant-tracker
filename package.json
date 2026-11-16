@@ -6,17 +6,22 @@
   "scripts": {
     "build": "nuxt build",
     "dev": "nuxt dev",
-    "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck",
+    "start": "node .output/server/index.mjs",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node --experimental-strip-types server/db/migrate.ts",
+    "db:bundle": "esbuild server/db/migrate.ts --bundle --platform=node --format=esm --target=node24 --outfile=dist/migrate.mjs --log-level=warning"
   },
   "devDependencies": {
     "@nuxt/devtools": "latest",
     "@nuxt/eslint": "^1.5.2",
     "@nuxt/ui": "^4.8.2",
+    "drizzle-kit": "^0.31.11",
+    "esbuild": "^0.28.2",
     "eslint": "^9.30.1",
     "tailwindcss": "^4.1.11",
     "typescript": "^5.8.3",
@@ -25,8 +30,14 @@
   "dependencies": {
     "@iconify-json/lucide": "^1.2.55",
     "@iconify-json/simple-icons": "^1.2.41",
-    "@nuxtjs/supabase": "^2.0.9",
+    "@nuxtjs/hanko": "^2.0.0",
     "@vueuse/nuxt": "^13.5.0",
-    "nuxt": "^4.4.8"
+    "drizzle-orm": "^0.45.4",
+    "jose": "^6.2.17",
+    "nuxt": "^4.4.8",
+    "postgres": "^4.1.1"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }
