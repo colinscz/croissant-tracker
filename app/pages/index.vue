@@ -8,12 +8,12 @@
 
       <!-- Error banner -->
       <UAlert
-        v-if="error"
+        v-if="pageError"
         color="error"
         variant="subtle"
         icon="i-lucide-triangle-alert"
         title="Couldn't reach the croissant database"
-        :description="error"
+        :description="pageError"
         class="mb-8"
       />
 
@@ -95,12 +95,17 @@
               class="space-y-4"
               @submit="addLateArrival"
             >
+              <!-- A team member, not free text: the debtor has to be identifiable
+                   for the "somebody else confirms it" rule to mean anything. -->
               <UFormField
                 label="Name"
                 required
               >
-                <UInput
-                  v-model="newEntry.name"
+                <USelectMenu
+                  v-model="newEntry.debtorProfileId"
+                  :items="memberOptions"
+                  value-key="value"
+                  icon="i-lucide-user"
                   placeholder="Who was late?"
                   class="w-full"
                 />
@@ -170,7 +175,21 @@
                     {{ debt.reason }}
                   </div>
                 </div>
+                <!-- You can't clear your own tab — a teammate has to confirm it.
+                     Enforced in Postgres too (prevent_self_delivery, 0007). -->
+                <div
+                  v-if="debt.debtorProfileId === currentProfileId"
+                  class="flex items-center gap-1.5 shrink-0 text-xs text-muted text-right"
+                >
+                  <UIcon
+                    name="i-lucide-user-check"
+                    class="size-4 shrink-0"
+                    aria-hidden="true"
+                  />
+                  A teammate has to confirm this one
+                </div>
                 <UButton
+                  v-else
                   color="success"
                   size="sm"
                   icon="i-lucide-check"
@@ -203,7 +222,7 @@
             >
               <div
                 v-for="(person, index) in leaderboard"
-                :key="person.name"
+                :key="person.profileId"
                 class="flex items-center justify-between gap-3 p-3 rounded-lg border"
                 :class="index < 3 ? 'bg-primary/10 border-primary/25' : 'bg-elevated/50 border-default'"
               >
@@ -297,15 +316,28 @@ import { ref, computed, onMounted, watch } from 'vue'
 const { entries, pending, error, fetchEntries, addEntry, markAsDelivered: deliverEntry } = useCroissantEntries()
 
 // Entries belong to a team, so the tracker always shows one team at a time.
-const { teams, activeTeamId, activeTeam, pending: teamsPending, fetchTeams } = useTeams()
+const { teams, members, activeTeamId, activeTeam, currentProfileId, pending: teamsPending, error: teamsError, fetchTeams, fetchMembers } = useTeams()
+
+// The page loads from both composables (entries, plus members for the picker),
+// so either one's failure belongs in the banner.
+const pageError = computed(() => error.value || teamsError.value)
 
 const teamOptions = computed(() => teams.value.map(team => ({ label: team.name, value: team.id })))
 
-const newEntry = ref({
-  name: '',
+// Late arrivals are logged against a team member, so the debtor is a real
+// account the "someone else marks it delivered" rule can be checked against.
+const teamMembers = computed(() => (activeTeamId.value && members.value[activeTeamId.value]) || [])
+const memberOptions = computed(() =>
+  teamMembers.value.map(member => ({ label: memberLabel(member), value: member.profileId }))
+)
+
+const emptyEntry = () => ({
+  debtorProfileId: null,
   date: new Date().toISOString().split('T')[0],
   reason: ''
 })
+
+const newEntry = ref(emptyEntry())
 
 // Computed properties
 const totalLateCount = computed(() => entries.value.length)
@@ -324,42 +356,49 @@ const recentEntries = computed(() =>
     .slice(0, 10)
 )
 
+// Grouped by profile rather than by the name string, so renaming a profile
+// doesn't split someone's history in two. The stored name is the fallback label
+// for anyone who has since left the team.
 const leaderboard = computed(() => {
   const counts = {}
   entries.value.forEach(entry => {
-    if (!counts[entry.name]) {
-      counts[entry.name] = { count: 0, delivered: 0, pending: 0 }
+    if (!counts[entry.debtorProfileId]) {
+      counts[entry.debtorProfileId] = { name: entry.name, count: 0, delivered: 0, pending: 0 }
     }
-    counts[entry.name].count++
+    counts[entry.debtorProfileId].count++
     if (entry.delivered) {
-      counts[entry.name].delivered++
+      counts[entry.debtorProfileId].delivered++
     } else {
-      counts[entry.name].pending++
+      counts[entry.debtorProfileId].pending++
     }
   })
-  
+
   return Object.entries(counts)
-    .map(([name, data]) => ({ name, ...data }))
+    .map(([profileId, data]) => {
+      const member = teamMembers.value.find(m => m.profileId === profileId)
+      return { profileId, ...data, name: member ? memberLabel(member) : data.name }
+    })
     .sort((a, b) => b.count - a.count)
 })
 
 // Methods
 const addLateArrival = async () => {
-  if (!newEntry.value.name || !newEntry.value.date || !activeTeamId.value) return
+  if (!newEntry.value.debtorProfileId || !newEntry.value.date || !activeTeamId.value) return
+
+  const debtor = teamMembers.value.find(m => m.profileId === newEntry.value.debtorProfileId)
+  if (!debtor) return
 
   await addEntry({
     teamId: activeTeamId.value,
-    name: newEntry.value.name,
+    debtorProfileId: debtor.profileId,
+    // Snapshot of the label at logging time; the profile id is what counts.
+    name: memberLabel(debtor),
     date: newEntry.value.date,
     reason: newEntry.value.reason
   })
 
   // Reset form
-  newEntry.value = {
-    name: '',
-    date: new Date().toISOString().split('T')[0],
-    reason: ''
-  }
+  newEntry.value = emptyEntry()
 }
 
 const markAsDelivered = (id) => deliverEntry(id)
@@ -373,12 +412,24 @@ const formatDate = (dateString) => {
 }
 
 // Lifecycle: teams first, since the entries query is scoped to the active one.
+// Members come along for the ride — they populate the "who was late?" picker and
+// the leaderboard labels.
+const loadTeam = async (teamId) => {
+  await Promise.all([
+    fetchEntries(teamId),
+    teamId ? fetchMembers(teamId) : Promise.resolve()
+  ])
+}
+
 onMounted(async () => {
   await fetchTeams()
-  await fetchEntries(activeTeamId.value)
+  await loadTeam(activeTeamId.value)
 })
 
-watch(activeTeamId, teamId => fetchEntries(teamId))
+watch(activeTeamId, teamId => {
+  newEntry.value = emptyEntry()
+  loadTeam(teamId)
+})
 
 // SEO
 useHead({

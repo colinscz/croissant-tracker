@@ -1,5 +1,5 @@
 // Database schema types for the typed Supabase client.
-// Mirror of supabase/migrations/0001–0004.
+// Mirror of supabase/migrations/0001–0007.
 //
 // `profiles` is not created by this repo's migrations — it already exists in the
 // Supabase project (the standard profile table keyed on the auth.users id). It's
@@ -12,6 +12,7 @@ export interface Database {
         Row: {
           id: number
           team_id: string
+          debtor_profile_id: string
           name: string
           date: string
           reason: string
@@ -22,6 +23,7 @@ export interface Database {
         Insert: {
           id?: number
           team_id: string
+          debtor_profile_id: string
           name: string
           date: string
           reason?: string
@@ -32,6 +34,7 @@ export interface Database {
         Update: {
           id?: number
           team_id?: string
+          debtor_profile_id?: string
           name?: string
           date?: string
           reason?: string
@@ -45,6 +48,13 @@ export interface Database {
             columns: ['team_id']
             isOneToOne: false
             referencedRelation: 'teams'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'croissant_entries_debtor_profile_id_fkey'
+            columns: ['debtor_profile_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
             referencedColumns: ['id']
           },
         ]
