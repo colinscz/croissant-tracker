@@ -1,40 +1,86 @@
-# Local development overrides: no TLS, no real email.
+# Local development stack — standalone, no TLS, no real email.
 #
-#   cp .env.example .env    # the "local development" values work as-is
-#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#   cp .env.example .env    # the defaults work as-is
 #
-#   App:       http://localhost:3000
+# Backing services for `pnpm dev` (the usual workflow):
+#
+#   docker compose -f docker-compose.dev.yml up -d
+#   pnpm db:migrate && pnpm dev
+#
+# Production-like run with the app in a container too:
+#
+#   docker compose -f docker-compose.dev.yml --profile full up --build
+#
+#   App:       http://localhost:3000   (pnpm dev, or the `full` profile)
 #   Hanko:     http://localhost:8000
 #   Mailpit:   http://localhost:8025   ← sign-in passcodes land here
-#   Postgres:  localhost:5432           (for `pnpm dev` / psql)
+#   Postgres:  localhost:5432
 #
-# For `pnpm dev` with hot reload, start only the backing services
-#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres hanko app-migrate mailpit
-# and run the Nuxt dev server on the host (see README).
+# Services inherit their definitions from docker-compose.yml (`extends`), so
+# images, env and config stay in one place; this file only adds dev ports,
+# Mailpit, and drops Caddy.
+
+name: croissant-tracker-dev
 
 services:
   postgres:
+    extends:
+      file: docker-compose.yml
+      service: postgres
     ports:
       - "5432:5432"
 
+  hanko-migrate:
+    extends:
+      file: docker-compose.yml
+      service: hanko-migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   hanko:
+    extends:
+      file: docker-compose.yml
+      service: hanko
     ports:
       - "8000:8000"
     environment:
       # Cookies over plain http on localhost.
       SESSION_COOKIE_SECURE: "false"
     depends_on:
+      hanko-migrate:
+        condition: service_completed_successfully
       mailpit:
         condition: service_started
-
-  app:
-    ports:
-      - "3000:3000"
 
   mailpit:
     image: axllent/mailpit:v1.27
     ports:
       - "8025:8025"
 
-  caddy:
-    profiles: ["production"]
+  # --- `--profile full`: the app itself, in containers -----------------------
+
+  app-migrate:
+    extends:
+      file: docker-compose.yml
+      service: app-migrate
+    profiles: ["full"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  app:
+    extends:
+      file: docker-compose.yml
+      service: app
+    profiles: ["full"]
+    ports:
+      - "3000:3000"
+    depends_on:
+      app-migrate:
+        condition: service_completed_successfully
+      hanko:
+        condition: service_started
+
+volumes:
+  postgres-data:

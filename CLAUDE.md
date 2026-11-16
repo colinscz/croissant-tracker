@@ -57,10 +57,11 @@ pnpm db:generate    # drizzle-kit: new migration from server/db/schema.ts
 pnpm db:migrate     # apply migrations (DATABASE_OWNER_URL)
 pnpm db:bundle      # bundle the migrator for the Docker `migrate` image
 
-# backing services for `pnpm dev` (Postgres, Hanko, Mailpit at :8025)
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres hanko app-migrate mailpit
-# whole stack locally / in production
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+# local: backing services for `pnpm dev` (Postgres, Hanko, Mailpit at :8025)
+docker compose -f docker-compose.dev.yml up -d      # then: pnpm db:migrate && pnpm dev
+# local: app in containers too (adds app-migrate + app on :3000)
+docker compose -f docker-compose.dev.yml --profile full up --build
+# production
 docker compose up -d --build
 ```
 
@@ -107,7 +108,9 @@ docker/
   hanko/config.yaml    # Hanko config (secrets/URLs come from env in compose)
   caddy/Caddyfile      # APP_DOMAIN → app, AUTH_DOMAIN → hanko
 Dockerfile             # targets: `app` (default) and `migrate`
-docker-compose.yml     # production stack; docker-compose.dev.yml = local overrides + Mailpit
+docker-compose.yml     # production stack (incl. Caddy)
+docker-compose.dev.yml # standalone local stack: `extends` the prod services, adds ports + Mailpit,
+                       # no Caddy; app + app-migrate only with `--profile full`
 docs/self-hosting-hetzner.md
 .github/workflows/ci.yml # typecheck + docker image build (no push); lint commented out
 ```
@@ -206,9 +209,13 @@ docs/self-hosting-hetzner.md
 ## Workflow Notes
 
 - Local dev needs Postgres + Hanko running (see Commands); copy `.env.example`
-  to `.env`, whose defaults match `docker-compose.dev.yml`. Passcode emails land
-  in Mailpit at http://localhost:8025. `pnpm typecheck`/`build` don't need any
-  services.
+  to `.env`, whose defaults match `docker-compose.dev.yml`. Run `pnpm db:migrate`
+  after starting the services (and after pulling new migrations). Passcode emails
+  land in Mailpit at http://localhost:8025. `pnpm typecheck`/`build` don't need
+  any services.
+- `docker-compose.dev.yml` is standalone. Use it with `-f docker-compose.dev.yml`
+  alone, not layered on `docker-compose.yml`. A service added to the production
+  file also needs an `extends` entry there if dev should run it.
 - Validate changes with `pnpm typecheck` and `pnpm lint` before committing.
 - The default branch is `main`; CI runs on pushes and PRs to `main`. There is no
   automatic deployment. Deploy by `git pull && docker compose up -d --build` on

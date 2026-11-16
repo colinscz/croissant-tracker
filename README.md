@@ -68,25 +68,28 @@ Requirements: Docker, Node 24 and pnpm.
 cp .env.example .env   # the defaults work for local development
 ```
 
-Run the backing services: Postgres, Hanko, migrations, and Mailpit to catch
-sign-in emails at <http://localhost:8025>:
+Start the backing services: Postgres, Hanko, and Mailpit to catch sign-in
+emails at <http://localhost:8025>:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres hanko app-migrate mailpit
+docker compose -f docker-compose.dev.yml up -d
 ```
 
-Then run Nuxt with hot reload on the host:
+Then apply the database migrations and run Nuxt with hot reload on the host:
 
 ```bash
-pnpm install && pnpm dev
+pnpm install && pnpm db:migrate && pnpm dev
 ```
 
-`pnpm dev` reads `NUXT_DATABASE_URL` and `NUXT_PUBLIC_HANKO_API_URL` from `.env`.
-To run the full stack in containers instead, including the app on
-<http://localhost:3000>:
+`pnpm db:migrate` reads `DATABASE_OWNER_URL` from `.env`. `pnpm dev` reads
+`NUXT_DATABASE_URL` and `NUXT_PUBLIC_HANKO_API_URL`.
+
+To run the app in containers too (a production-like build on
+<http://localhost:3000>, with migrations applied by the `app-migrate`
+container), add the `full` profile:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+docker compose -f docker-compose.dev.yml --profile full up --build
 ```
 
 ### Database changes

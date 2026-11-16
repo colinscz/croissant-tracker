@@ -75,4 +75,5 @@ jobs:
         run: |
           cp .env.example .env
           docker compose config --quiet
-          docker compose -f docker-compose.yml -f docker-compose.dev.yml config --quiet
+          docker compose -f docker-compose.dev.yml config --quiet
+          docker compose -f docker-compose.dev.yml --profile full config --quiet
